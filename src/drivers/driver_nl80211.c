@@ -203,6 +203,16 @@ static int i802_sta_disassoc(void *priv, const u8 *own_addr, const u8 *addr,
 enum chan_width convert2width(int width)
 {
 	switch (width) {
+	case NL80211_CHAN_WIDTH_1:
+		return CHAN_WIDTH_1;
+	case NL80211_CHAN_WIDTH_2:
+		return CHAN_WIDTH_2;
+	case NL80211_CHAN_WIDTH_4:
+		return CHAN_WIDTH_4;
+	case NL80211_CHAN_WIDTH_8:
+		return CHAN_WIDTH_8;
+	case NL80211_CHAN_WIDTH_16:
+		return CHAN_WIDTH_16;        
 	case NL80211_CHAN_WIDTH_20_NOHT:
 		return CHAN_WIDTH_20_NOHT;
 	case NL80211_CHAN_WIDTH_20:
@@ -4868,6 +4878,21 @@ static int nl80211_put_freq_params(struct nl_msg *msg,
 
 		wpa_printf(MSG_DEBUG, "  * bandwidth=%d", freq->bandwidth);
 		switch (freq->bandwidth) {
+		case 1:
+			cw = NL80211_CHAN_WIDTH_1;
+			break;
+		case 2:
+			cw = NL80211_CHAN_WIDTH_2;
+			break;
+		case 4:
+			cw = NL80211_CHAN_WIDTH_4;
+			break;
+		case 8:
+			cw = NL80211_CHAN_WIDTH_8;
+			break;
+		case 16:
+			cw = NL80211_CHAN_WIDTH_16;
+			break;
 		case 20:
 			cw = NL80211_CHAN_WIDTH_20;
 			break;

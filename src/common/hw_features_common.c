@@ -776,6 +776,21 @@ int chan_bw_allowed(const struct hostapd_channel_data *chan, u32 bw,
 	u32 bw_mask;
 
 	switch (bw) {
+	case 1:
+		bw_mask = HOSTAPD_CHAN_WIDTH_1;
+		break;
+	case 2:
+		bw_mask = HOSTAPD_CHAN_WIDTH_2;
+		break;
+	case 4:
+		bw_mask = HOSTAPD_CHAN_WIDTH_4;
+		break;
+	case 8:
+		bw_mask = HOSTAPD_CHAN_WIDTH_8;
+		break;
+	case 16:
+		bw_mask = HOSTAPD_CHAN_WIDTH_16;
+		break;        
 	case 20:
 		bw_mask = HOSTAPD_CHAN_WIDTH_20;
 		break;

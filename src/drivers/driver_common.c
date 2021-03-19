@@ -100,6 +100,16 @@ const char * event_to_string(enum wpa_event_type event)
 const char * channel_width_to_string(enum chan_width width)
 {
 	switch (width) {
+	case CHAN_WIDTH_1:
+		return "1 MHz";
+	case CHAN_WIDTH_2:
+		return "2 MHz";
+	case CHAN_WIDTH_4:
+		return "4 MHz";
+	case CHAN_WIDTH_8:
+		return "8 MHz";
+	case CHAN_WIDTH_16:
+		return "16 MHz";        
 	case CHAN_WIDTH_20_NOHT:
 		return "20 MHz (no HT)";
 	case CHAN_WIDTH_20:
@@ -121,6 +131,16 @@ const char * channel_width_to_string(enum chan_width width)
 int channel_width_to_int(enum chan_width width)
 {
 	switch (width) {
+	case CHAN_WIDTH_1:
+		return 1;
+	case CHAN_WIDTH_2:
+		return 2;
+	case CHAN_WIDTH_4:
+		return 4;
+	case CHAN_WIDTH_8:
+		return 8;
+	case CHAN_WIDTH_16:
+		return 16;        
 	case CHAN_WIDTH_20_NOHT:
 	case CHAN_WIDTH_20:
 		return 20;

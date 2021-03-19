@@ -1984,7 +1984,10 @@ wpa_driver_nl80211_postprocess_modes(struct hostapd_hw_modes *modes,
 	for (m = 0; m < *num_modes; m++) {
 		if (!modes[m].num_channels)
 			continue;
-		if (modes[m].channels[0].freq < 2000) {
+        if (modes[m].channels[0].freq < 1000) {
+            modes[m].mode = HOSTAPD_MODE_IEEE80211AH;
+        }
+		else if (modes[m].channels[0].freq < 2000) {
 			modes[m].num_channels = 0;
 			continue;
 		} else if (modes[m].channels[0].freq < 4000) {
@@ -2127,8 +2130,14 @@ static void nl80211_reg_rule_max_eirp(u32 start, u32 end, u32 max_eirp,
 		for (c = 0; c < mode->num_channels; c++) {
 			struct hostapd_channel_data *chan = &mode->channels[c];
 			if ((u32) chan->freq - 10 >= start &&
-			    (u32) chan->freq + 10 <= end)
+			    (u32) chan->freq + 10 <= end && 
+                chan->freq >= 1000)
 				chan->max_tx_power = max_eirp;
+            // 802.11ah sub-1GHz
+            else if ((u32) chan->freq >= start &&
+			    (u32) chan->freq + 1 <= end &&
+			    chan->freq < 1000)
+                chan->max_tx_power = max_eirp;
 		}
 	}
 }
@@ -2409,6 +2418,8 @@ static const char * modestr(enum hostapd_hw_mode mode)
 		return "802.11a";
 	case HOSTAPD_MODE_IEEE80211AD:
 		return "802.11ad";
+	case HOSTAPD_MODE_IEEE80211AH:
+		return "802.11ah";
 	default:
 		return "?";
 	}

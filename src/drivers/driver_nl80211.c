@@ -541,6 +541,22 @@ static int send_and_recv_msgs_owner(struct wpa_driver_nl80211_data *drv,
 }
 
 
+static int
+send_and_recv_msgs_connect_handle(struct wpa_driver_nl80211_data *drv,
+				  struct nl_msg *msg, struct i802_bss *bss,
+				  int set_owner)
+{
+	struct nl_sock *nl_connect = get_connect_handle(bss);
+
+	if (nl_connect)
+		return send_and_recv_msgs_owner(drv, msg, nl_connect, set_owner,
+						process_bss_event, bss, NULL,
+						NULL);
+	else
+		return send_and_recv_msgs(drv, msg, NULL, NULL, NULL, NULL);
+}
+
+
 struct nl_sock * get_connect_handle(struct i802_bss *bss)
 {
 	if ((bss->drv->capa.flags2 & WPA_DRIVER_FLAGS2_CONTROL_PORT_RX) ||
@@ -2836,8 +2852,8 @@ wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv,
 				set_addr)))
 		return -1;
 
-	if (first && nl80211_get_ifmode(bss) == NL80211_IFTYPE_AP)
-		drv->start_mode_ap = 1;
+	if (first && nl80211_get_ifmode(bss) == NL80211_IFTYPE_STATION)
+		drv->start_mode_sta = 1;
 
 	if (drv->hostapd || bss->static_ap)
 		nlmode = NL80211_IFTYPE_AP;
@@ -3002,7 +3018,7 @@ static void wpa_driver_nl80211_deinit(struct i802_bss *bss)
 	}
 
 	if (drv->nlmode != NL80211_IFTYPE_P2P_DEVICE) {
-		if (!drv->hostapd || !drv->start_mode_ap)
+		if (drv->start_mode_sta)
 			wpa_driver_nl80211_set_mode(bss,
 						    NL80211_IFTYPE_STATION);
 		nl80211_mgmt_unsubscribe(bss, "deinit");
@@ -3555,10 +3571,11 @@ static int nl80211_set_conn_keys(struct wpa_driver_associate_params *params,
 int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
 			    const u8 *addr, int cmd, u16 reason_code,
 			    int local_state_change,
-			    struct nl_sock *nl_connect)
+			    struct i802_bss *bss)
 {
 	int ret;
 	struct nl_msg *msg;
+	struct nl_sock *nl_connect = get_connect_handle(bss);
 
 	if (!(msg = nl80211_drv_msg(drv, 0, cmd)) ||
 	    nla_put_u16(msg, NL80211_ATTR_REASON_CODE, reason_code) ||
@@ -3570,8 +3587,8 @@ int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
 	}
 
 	if (nl_connect)
-		ret = send_and_recv(drv->global, nl_connect, msg, NULL, NULL,
-				    NULL, NULL);
+		ret = send_and_recv(drv->global, nl_connect, msg,
+				    process_bss_event, bss, NULL, NULL);
 	else
 		ret = send_and_recv_msgs(drv, msg, NULL, NULL, NULL, NULL);
 	if (ret) {
@@ -3585,7 +3602,7 @@ int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
 
 static int wpa_driver_nl80211_disconnect(struct wpa_driver_nl80211_data *drv,
 					 u16 reason_code,
-					 struct nl_sock *nl_connect)
+					 struct i802_bss *bss)
 {
 	int ret;
 	int drv_associated = drv->associated;
@@ -3594,7 +3611,7 @@ static int wpa_driver_nl80211_disconnect(struct wpa_driver_nl80211_data *drv,
 	nl80211_mark_disconnected(drv);
 	/* Disconnect command doesn't need BSSID - it uses cached value */
 	ret = wpa_driver_nl80211_mlme(drv, NULL, NL80211_CMD_DISCONNECT,
-				      reason_code, 0, nl_connect);
+				      reason_code, 0, bss);
 	/*
 	 * For locally generated disconnect, supplicant already generates a
 	 * DEAUTH event, so ignore the event from NL80211.
@@ -3617,14 +3634,13 @@ static int wpa_driver_nl80211_deauthenticate(struct i802_bss *bss,
 		return nl80211_leave_ibss(drv, 1);
 	}
 	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_SME)) {
-		return wpa_driver_nl80211_disconnect(drv, reason_code,
-						     get_connect_handle(bss));
+		return wpa_driver_nl80211_disconnect(drv, reason_code, bss);
 	}
 	wpa_printf(MSG_DEBUG, "%s(addr=" MACSTR " reason_code=%d)",
 		   __func__, MAC2STR(addr), reason_code);
 	nl80211_mark_disconnected(drv);
 	ret = wpa_driver_nl80211_mlme(drv, addr, NL80211_CMD_DEAUTHENTICATE,
-				      reason_code, 0, get_connect_handle(bss));
+				      reason_code, 0, bss);
 	/*
 	 * For locally generated deauthenticate, supplicant already generates a
 	 * DEAUTH event, so ignore the event from NL80211.
@@ -4036,6 +4052,19 @@ static int wpa_driver_nl80211_send_mlme(struct i802_bss *bss, const u8 *data,
 			offchanok = 1;
 		}
 	}
+
+#ifdef CONFIG_PASN
+	if (is_sta_interface(drv->nlmode) &&
+	    WLAN_FC_GET_TYPE(fc) == WLAN_FC_TYPE_MGMT &&
+	     WLAN_FC_GET_STYPE(fc) == WLAN_FC_STYPE_DEAUTH) {
+		wpa_printf(MSG_DEBUG,
+			   "nl80211: send_mlme: allow Deauthentication frame for PASN");
+
+		use_cookie = 0;
+		offchanok = 1;
+		goto send_frame_cmd;
+	}
+#endif /* CONFIG_PASN */
 
 	if (freq == 0 && drv->nlmode == NL80211_IFTYPE_ADHOC) {
 		freq = nl80211_get_assoc_freq(drv);
@@ -4773,8 +4802,7 @@ static int wpa_driver_nl80211_set_ap(void *priv,
 		goto fail;
 #endif /* CONFIG_FILS */
 
-	ret = send_and_recv_msgs_owner(drv, msg, get_connect_handle(bss), 1,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, bss, 1);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: Beacon set failed: %d (%s)",
 			   ret, strerror(-ret));
@@ -5843,9 +5871,7 @@ static int nl80211_leave_ibss(struct wpa_driver_nl80211_data *drv,
 	int ret;
 
 	msg = nl80211_drv_msg(drv, 0, NL80211_CMD_LEAVE_IBSS);
-	ret = send_and_recv_msgs_owner(drv, msg,
-				       get_connect_handle(drv->first_bss), 1,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, drv->first_bss, 1);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: Leave IBSS failed: ret=%d "
 			   "(%s)", ret, strerror(-ret));
@@ -5902,6 +5928,14 @@ static int nl80211_ht_vht_overrides(struct nl_msg *msg,
 			return -1;
 	}
 #endif /* CONFIG_VHT_OVERRIDES */
+
+#ifdef CONFIG_HE_OVERRIDES
+	if (params->disable_he) {
+		wpa_printf(MSG_DEBUG, "  * HE disabled");
+		if (nla_put_flag(msg, NL80211_ATTR_DISABLE_HE))
+			return -1;
+	}
+#endif /* CONFIG_HE_OVERRIDES */
 
 	return 0;
 }
@@ -5977,9 +6011,7 @@ retry:
 	if (ret < 0)
 		goto fail;
 
-	ret = send_and_recv_msgs_owner(drv, msg,
-				       get_connect_handle(drv->first_bss), 1,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, drv->first_bss, 1);
 	msg = NULL;
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: Join IBSS failed: ret=%d (%s)",
@@ -6315,7 +6347,7 @@ static int nl80211_connect_common(struct wpa_driver_nl80211_data *drv,
 static int wpa_driver_nl80211_try_connect(
 	struct wpa_driver_nl80211_data *drv,
 	struct wpa_driver_associate_params *params,
-	struct nl_sock *nl_connect)
+	struct i802_bss *bss)
 {
 	struct nl_msg *msg;
 	enum nl80211_auth_type type;
@@ -6387,8 +6419,7 @@ skip_auth_type:
 	if (ret)
 		goto fail;
 
-	ret = send_and_recv_msgs_owner(drv, msg, nl_connect, 1, NULL,
-				       NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, bss, 1);
 	msg = NULL;
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: MLME connect failed: ret=%d "
@@ -6412,7 +6443,7 @@ fail:
 static int wpa_driver_nl80211_connect(
 	struct wpa_driver_nl80211_data *drv,
 	struct wpa_driver_associate_params *params,
-	struct nl_sock *nl_connect)
+	struct i802_bss *bss)
 {
 	int ret;
 
@@ -6422,7 +6453,7 @@ static int wpa_driver_nl80211_connect(
 	else
 		os_memset(drv->auth_attempt_bssid, 0, ETH_ALEN);
 
-	ret = wpa_driver_nl80211_try_connect(drv, params, nl_connect);
+	ret = wpa_driver_nl80211_try_connect(drv, params, bss);
 	if (ret == -EALREADY) {
 		/*
 		 * cfg80211 does not currently accept new connections if
@@ -6433,9 +6464,9 @@ static int wpa_driver_nl80211_connect(
 			   "disconnecting before reassociation "
 			   "attempt");
 		if (wpa_driver_nl80211_disconnect(
-			    drv, WLAN_REASON_PREV_AUTH_NOT_VALID, nl_connect))
+			    drv, WLAN_REASON_PREV_AUTH_NOT_VALID, bss))
 			return -1;
-		ret = wpa_driver_nl80211_try_connect(drv, params, nl_connect);
+		ret = wpa_driver_nl80211_try_connect(drv, params, bss);
 	}
 	return ret;
 }
@@ -6469,8 +6500,7 @@ static int wpa_driver_nl80211_associate(
 		else
 			bss->use_nl_connect = 0;
 
-		return wpa_driver_nl80211_connect(drv, params,
-						  get_connect_handle(bss));
+		return wpa_driver_nl80211_connect(drv, params, bss);
 	}
 
 	nl80211_mark_disconnected(drv);
@@ -6505,9 +6535,7 @@ static int wpa_driver_nl80211_associate(
 			goto fail;
 	}
 
-	ret = send_and_recv_msgs_owner(drv, msg,
-				       get_connect_handle(drv->first_bss), 1,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, drv->first_bss, 1);
 	msg = NULL;
 	if (ret) {
 		wpa_dbg(drv->ctx, MSG_DEBUG,
@@ -9746,11 +9774,18 @@ static int nl80211_switch_channel(void *priv, struct csa_settings *settings)
 	int csa_off_len = 0;
 	int i;
 
-	wpa_printf(MSG_DEBUG, "nl80211: Channel switch request (cs_count=%u block_tx=%u freq=%d width=%d cf1=%d cf2=%d)",
+	wpa_printf(MSG_DEBUG,
+		   "nl80211: Channel switch request (cs_count=%u block_tx=%u freq=%d channel=%d sec_channel_offset=%d width=%d cf1=%d cf2=%d%s%s%s)",
 		   settings->cs_count, settings->block_tx,
-		   settings->freq_params.freq, settings->freq_params.bandwidth,
+		   settings->freq_params.freq,
+		   settings->freq_params.channel,
+		   settings->freq_params.sec_channel_offset,
+		   settings->freq_params.bandwidth,
 		   settings->freq_params.center_freq1,
-		   settings->freq_params.center_freq2);
+		   settings->freq_params.center_freq2,
+		   settings->freq_params.ht_enabled ? " ht" : "",
+		   settings->freq_params.vht_enabled ? " vht" : "",
+		   settings->freq_params.he_enabled ? " he" : "");
 
 	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_AP_CSA)) {
 		wpa_printf(MSG_DEBUG, "nl80211: Driver does not support channel switch command");
@@ -10490,8 +10525,7 @@ static int nl80211_join_mesh(struct i802_bss *bss,
 	if (nl80211_put_mesh_config(msg, &params->conf) < 0)
 		goto fail;
 
-	ret = send_and_recv_msgs_owner(drv, msg, get_connect_handle(bss), 1,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, bss, 1);
 	msg = NULL;
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: mesh join failed: ret=%d (%s)",
@@ -10548,8 +10582,7 @@ static int wpa_driver_nl80211_leave_mesh(void *priv)
 
 	wpa_printf(MSG_DEBUG, "nl80211: mesh leave (ifindex=%d)", drv->ifindex);
 	msg = nl80211_drv_msg(drv, 0, NL80211_CMD_LEAVE_MESH);
-	ret = send_and_recv_msgs_owner(drv, msg, get_connect_handle(bss), 0,
-				       NULL, NULL, NULL, NULL);
+	ret = send_and_recv_msgs_connect_handle(drv, msg, bss, 0);
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: mesh leave failed: ret=%d (%s)",
 			   ret, strerror(-ret));
@@ -10558,7 +10591,8 @@ static int wpa_driver_nl80211_leave_mesh(void *priv)
 			   "nl80211: mesh leave request send successfully");
 	}
 
-	if (wpa_driver_nl80211_set_mode(drv->first_bss,
+	if (drv->start_mode_sta &&
+	    wpa_driver_nl80211_set_mode(drv->first_bss,
 					NL80211_IFTYPE_STATION)) {
 		wpa_printf(MSG_INFO,
 			   "nl80211: Failed to set interface into station mode");

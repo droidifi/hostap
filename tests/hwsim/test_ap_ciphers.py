@@ -419,6 +419,7 @@ def test_ap_cipher_wpa_sae(dev, apdev):
     """WPA-PSK/TKIP and SAE mixed AP - WPA IE and RSNXE coexistence"""
     skip_with_fips(dev[0])
     skip_without_tkip(dev[0])
+    check_sae_capab(dev[0])
     ssid = "test-wpa-sae"
     passphrase = "12345678"
     params = {"ssid": ssid,
@@ -649,12 +650,24 @@ def test_ap_cipher_replay_protection_sta_gtk_gcmp(dev, apdev):
         raise HwsimSkip("GCMP not supported")
     run_ap_cipher_replay_protection_sta(dev, apdev, "GCMP", keytype=KT_GTK)
 
+def test_ap_cipher_replay_protection_sta_igtk(dev, apdev):
+    """CCMP replay protection on STA (IGTK)"""
+    run_ap_cipher_replay_protection_sta(dev, apdev, "CCMP", keytype=KT_IGTK)
+
+def test_ap_cipher_replay_protection_sta_bigtk(dev, apdev):
+    """CCMP replay protection on STA (BIGTK)"""
+    run_ap_cipher_replay_protection_sta(dev, apdev, "CCMP", keytype=KT_BIGTK)
+
 def run_ap_cipher_replay_protection_sta(dev, apdev, cipher, keytype=KT_PTK):
     params = {"ssid": "test-wpa2-psk",
               "wpa_passphrase": "12345678",
               "wpa": "2",
               "wpa_key_mgmt": "WPA-PSK",
               "rsn_pairwise": cipher}
+    if keytype == KT_IGTK or keytype == KT_BIGTK:
+        params['ieee80211w'] = '2'
+    if keytype == KT_BIGTK:
+        params['beacon_prot'] = '1'
     hapd = hostapd.add_ap(apdev[0], params)
 
     Wlantest.setup(hapd)
@@ -663,9 +676,13 @@ def run_ap_cipher_replay_protection_sta(dev, apdev, cipher, keytype=KT_PTK):
     wt.add_passphrase("12345678")
 
     phy = dev[0].get_driver_status_field("phyname")
-    dev[0].connect("test-wpa2-psk", psk="12345678",
+    dev[0].connect("test-wpa2-psk", psk="12345678", ieee80211w='1',
+                   beacon_prot='1',
                    pairwise=cipher, group=cipher, scan_freq="2412")
     hapd.wait_sta()
+
+    if keytype == KT_BIGTK:
+        time.sleep(1)
 
     if cipher != "TKIP":
         replays = get_tk_replay_counter(phy, keytype)
@@ -680,12 +697,29 @@ def run_ap_cipher_replay_protection_sta(dev, apdev, cipher, keytype=KT_PTK):
         if replays != 0:
             raise Exception("Unexpected replay reported (2)")
 
+    if keytype == KT_IGTK:
+        hapd.request("DEAUTHENTICATE ff:ff:ff:ff:ff:ff test=1")
+        ev = dev[0].wait_event(["CTRL-EVENT-DISCONNECTED"], timeout=1)
+        if ev:
+            dev[0].wait_connected()
+
     addr = "ff:ff:ff:ff:ff:ff" if keytype != KT_PTK else dev[0].own_addr()
-    if "OK" not in hapd.request("RESET_PN " + addr):
+    cmd = "RESET_PN " + addr
+    if keytype == KT_IGTK:
+        cmd += " IGTK"
+    if keytype == KT_BIGTK:
+        cmd += " BIGTK"
+    if "OK" not in hapd.request(cmd):
         raise Exception("RESET_PN failed")
     time.sleep(0.1)
-    hwsim_utils.test_connectivity(dev[0], hapd, timeout=1,
-                                  success_expected=False)
+    if keytype == KT_IGTK:
+        hapd.request("DEAUTHENTICATE ff:ff:ff:ff:ff:ff test=1")
+        ev = dev[0].wait_event(["CTRL-EVENT-DISCONNECTED"], timeout=1)
+    elif keytype == KT_BIGTK:
+        time.sleep(1)
+    else:
+        hwsim_utils.test_connectivity(dev[0], hapd, timeout=1,
+                                      success_expected=False)
 
     if cipher != "TKIP":
         replays = get_tk_replay_counter(phy, keytype)
@@ -1033,6 +1067,35 @@ def test_ap_wpa2_plaintext_group_m1_pmf(dev, apdev):
     if "OK" not in hapd.request("RESEND_GROUP_M1 " + addr):
         raise Exception("RESEND_GROUP_M1 failed")
     time.sleep(0.1)
+
+def test_ap_wpa2_test_command_failures(dev, apdev):
+    """EAPOL/key config test command failures"""
+    params = hostapd.wpa2_params(ssid="test-wpa2-psk", passphrase="12345678")
+    hapd = hostapd.add_ap(apdev[0], params)
+    tests = ["RESEND_M1 foo",
+             "RESEND_M1 22:22:22:22:22:22",
+             "RESEND_M3 foo",
+             "RESEND_M3 22:22:22:22:22:22",
+             "RESEND_GROUP_M1 foo",
+             "RESEND_GROUP_M1 22:22:22:22:22:22",
+             "SET_KEY foo",
+             "SET_KEY 3 foo",
+             "SET_KEY 3 22:22:22:22:22:22",
+             "SET_KEY 3 22:22:22:22:22:22 1",
+             "SET_KEY 3 22:22:22:22:22:22 1 1",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 q",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 112233445566",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 112233445566 1",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 112233445566 12",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 112233445566 12 1",
+             "SET_KEY 3 22:22:22:22:22:22 1 1 112233445566 12 1 ",
+             "RESET_PN ff:ff:ff:ff:ff:ff BIGTK",
+             "RESET_PN ff:ff:ff:ff:ff:ff IGTK",
+             "RESET_PN 22:22:22:22:22:22",
+             "RESET_PN foo"]
+    for t in tests:
+        if "FAIL" not in hapd.request(t):
+            raise Exception("Invalid command accepted: " + t)
 
 def test_ap_wpa2_gtk_initial_rsc_tkip(dev, apdev):
     """Initial group cipher RSC (TKIP)"""

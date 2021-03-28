@@ -305,6 +305,7 @@ def test_dpp_configurator_enrollee_brainpoolP512r1(dev, apdev):
 
 def test_dpp_configurator_enroll_conf(dev, apdev):
     """DPP Configurator enrolling followed by use of the new Configurator"""
+    check_dpp_capab(dev[0], min_ver=2)
     try:
         dev[0].set("dpp_config_processing", "2")
         run_dpp_configurator_enroll_conf(dev, apdev)
@@ -2550,6 +2551,34 @@ def test_dpp_pkex_hostapd_initiator(dev, apdev):
     wait_auth_success(hapd, dev[0], configurator=dev[0], enrollee=hapd,
                       stop_initiator=True)
 
+def test_dpp_pkex_hostapd_errors(dev, apdev):
+    """DPP PKEX errors with hostapd"""
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured",
+                                     "channel": "6"})
+    check_dpp_capab(hapd)
+    id0 = hapd.dpp_bootstrap_gen(type="pkex")
+    tests = ["own=%d" % id0,
+             "own=%d identifier=foo" % id0,
+             ""]
+    for t in tests:
+        if "FAIL" not in hapd.request("DPP_PKEX_ADD " + t):
+            raise Exception("Invalid DPP_PKEX_ADD accepted: " + t)
+
+    res = hapd.request("DPP_PKEX_ADD own=%d code=foo" % id0)
+    if "FAIL" in res:
+        raise Exception("Failed to add PKEX responder")
+    if "OK" not in hapd.request("DPP_PKEX_REMOVE " + res):
+        raise Exception("Failed to remove PKEX responder")
+    if "FAIL" not in hapd.request("DPP_PKEX_REMOVE " + res):
+        raise Exception("Unknown PKEX responder removal accepted")
+
+    res = hapd.request("DPP_PKEX_ADD own=%d code=foo" % id0)
+    if "FAIL" in res:
+        raise Exception("Failed to add PKEX responder")
+    if "OK" not in hapd.request("DPP_PKEX_REMOVE *"):
+        raise Exception("Failed to flush PKEX responders")
+    hapd.request("DPP_PKEX_REMOVE *")
+
 def test_dpp_hostapd_configurator(dev, apdev):
     """DPP with hostapd as configurator/initiator"""
     check_dpp_capab(dev[0])
@@ -3622,6 +3651,67 @@ def test_dpp_proto_network_introduction(dev, apdev):
     dev[0].connect("dpp", key_mgmt="DPP", scan_freq="2412", ieee80211w="2",
                    dpp_csign=params1_csign, dpp_connector=params1_sta_connector,
                    dpp_netaccesskey=params1_sta_netaccesskey)
+
+def test_dpp_hostapd_auth_conf_timeout(dev, apdev):
+    """DPP Authentication Confirm timeout in hostapd"""
+    check_dpp_capab(dev[0])
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured"})
+    check_dpp_capab(hapd)
+    id_h = hapd.dpp_bootstrap_gen(chan="81/1", mac=True)
+    uri_h = hapd.request("DPP_BOOTSTRAP_GET_URI %d" % id_h)
+    hapd.dpp_listen(2412)
+    dev[0].set("dpp_test", "88")
+    dev[0].dpp_auth_init(uri=uri_h)
+    ev = hapd.wait_event(["DPP-FAIL"], timeout=10)
+    if ev is None:
+        raise Exception("DPP-FAIL not reported")
+    if "No Auth Confirm received" not in ev:
+        raise Exception("Unexpected failure reason: " + ev)
+
+def test_dpp_hostapd_auth_resp_retries(dev, apdev):
+    """DPP Authentication Response retries in hostapd"""
+    check_dpp_capab(dev[0])
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured"})
+    check_dpp_capab(hapd)
+
+    hapd.set("dpp_resp_max_tries", "3")
+    hapd.set("dpp_resp_retry_time", "100")
+
+    id_h = hapd.dpp_bootstrap_gen(chan="81/1", mac=True)
+    uri_h = hapd.request("DPP_BOOTSTRAP_GET_URI %d" % id_h)
+    id0b = dev[0].dpp_bootstrap_gen(chan="81/1", mac=True)
+    uri0b = dev[0].request("DPP_BOOTSTRAP_GET_URI %d" % id0b)
+    hapd.dpp_listen(2412, qr="mutual")
+    dev[0].dpp_auth_init(uri=uri_h, own=id0b)
+
+    ev = dev[0].wait_event(["DPP-RESPONSE-PENDING"], timeout=5)
+    if ev is None:
+        raise Exception("Pending response not reported")
+    ev = hapd.wait_event(["DPP-SCAN-PEER-QR-CODE"], timeout=5)
+    if ev is None:
+        raise Exception("QR Code scan for mutual authentication not requested")
+
+    # Stop Initiator from listening to frames to force retransmission of the
+    # DPP Authentication Response frame with Status=0
+    dev[0].request("DPP_STOP_LISTEN")
+
+    hapd.dump_monitor()
+    dev[0].dump_monitor()
+
+    id0b = hapd.dpp_qr_code(uri0b)
+
+    ev = hapd.wait_event(["DPP-TX "], timeout=5)
+    if ev is None or "type=1" not in ev:
+        raise Exception("DPP Authentication Response not sent")
+    ev = hapd.wait_event(["DPP-TX-STATUS"], timeout=5)
+    if ev is None:
+        raise Exception("TX status for DPP Authentication Response not reported")
+    if "result=FAILED" not in ev:
+        raise Exception("Unexpected TX status for Authentication Response: " + ev)
+
+    ev = hapd.wait_event(["DPP-TX "], timeout=15)
+    if ev is None or "type=1" not in ev:
+        raise Exception("DPP Authentication Response retransmission not sent")
 
 def test_dpp_qr_code_no_chan_list_unicast(dev, apdev):
     """DPP QR Code and no channel list (unicast)"""
@@ -4985,6 +5075,20 @@ def run_dpp_tcp_conf_init(dev0, dev1, cap_lo, port=None, conf="sta-dpp"):
     time.sleep(0.5)
     wt.close()
 
+def test_dpp_tcp_controller_management_hostapd(dev, apdev, params):
+    """DPP Controller management in hostapd"""
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured"})
+    check_dpp_capab(hapd)
+    conf_id = hapd.dpp_configurator_add()
+    if "OK" not in hapd.request("DPP_CONTROLLER_START"):
+        raise Exception("Failed to start Controller")
+    if "FAIL" not in hapd.request("DPP_CONTROLLER_START"):
+        raise Exception("DPP_CONTROLLER_START succeeded while already running Controller")
+    hapd.request("DPP_CONTROLLER_STOP")
+    hapd.dpp_configurator_remove(conf_id)
+    if "FAIL" not in hapd.request("DPP_CONFIGURATOR_REMOVE %d" % conf_id):
+        raise Exception("Removal of unknown Configurator accepted")
+
 def test_dpp_tcp_controller_start_failure(dev, apdev, params):
     """DPP Controller startup failure"""
     check_dpp_capab(dev[0])
@@ -5284,16 +5388,51 @@ def test_dpp_nfc_uri(dev, apdev):
     dev[1].dpp_auth_init(nfc_uri=uri, configurator=conf_id, conf="sta-dpp")
     wait_auth_success(dev[0], dev[1], configurator=dev[1], enrollee=dev[0])
 
+def test_dpp_nfc_uri_hostapd(dev, apdev):
+    """DPP bootstrapping via NFC URI record (hostapd)"""
+    check_dpp_capab(dev[0])
+
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured"})
+    check_dpp_capab(hapd)
+
+    id = hapd.dpp_bootstrap_gen(type="nfc-uri", chan="81/1", mac=True)
+    uri = hapd.request("DPP_BOOTSTRAP_GET_URI %d" % id)
+    logger.info("Generated URI: " + uri)
+    info = hapd.request("DPP_BOOTSTRAP_INFO %d" % id)
+    logger.info("Bootstrapping info:\n" + info)
+    if "type=NFC-URI" not in info:
+        raise Exception("Unexpected bootstrapping info contents")
+
+    hapd.dpp_listen(2412)
+    conf_id = dev[0].dpp_configurator_add()
+    dev[0].dpp_auth_init(nfc_uri=uri, configurator=conf_id, conf="ap-dpp")
+    wait_auth_success(hapd, dev[0], configurator=dev[0], enrollee=hapd)
+
 def test_dpp_nfc_negotiated_handover(dev, apdev):
     """DPP bootstrapping via NFC negotiated handover"""
-    run_dpp_nfc_negotiated_handover(dev, apdev)
+    run_dpp_nfc_negotiated_handover(dev)
 
 def test_dpp_nfc_negotiated_handover_diff_curve(dev, apdev):
     """DPP bootstrapping via NFC negotiated handover (different curve)"""
-    run_dpp_nfc_negotiated_handover(dev, apdev, curve0="prime256v1",
+    run_dpp_nfc_negotiated_handover(dev, curve0="prime256v1",
                                     curve1="secp384r1")
 
-def run_dpp_nfc_negotiated_handover(dev, apdev, curve0=None, curve1=None):
+def test_dpp_nfc_negotiated_handover_hostapd_sel(dev, apdev):
+    """DPP bootstrapping via NFC negotiated handover (hostapd as selector)"""
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured",
+                                     "channel": "6"})
+    check_dpp_capab(hapd)
+    run_dpp_nfc_negotiated_handover([dev[0], hapd], conf="ap-dpp")
+
+def test_dpp_nfc_negotiated_handover_hostapd_req(dev, apdev):
+    """DPP bootstrapping via NFC negotiated handover (hostapd as requestor)"""
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured",
+                                     "channel": "6"})
+    check_dpp_capab(hapd)
+    run_dpp_nfc_negotiated_handover([hapd, dev[0]])
+
+def run_dpp_nfc_negotiated_handover(dev, curve0=None, curve1=None,
+                                    conf="sta-dpp"):
     check_dpp_capab(dev[0])
     check_dpp_capab(dev[1])
 
@@ -5329,7 +5468,7 @@ def run_dpp_nfc_negotiated_handover(dev, apdev, curve0=None, curve1=None):
 
     conf_id = dev[0].dpp_configurator_add()
     dev[0].dpp_auth_init(peer=peer, own=id0, configurator=conf_id,
-                         conf="sta-dpp")
+                         conf=conf)
     wait_auth_success(dev[1], dev[0], configurator=dev[0], enrollee=dev[1])
 
 def test_dpp_with_p2p_device(dev, apdev):
@@ -5447,6 +5586,26 @@ def test_dpp_chirp_configurator(dev, apdev):
 
     wait_auth_success(dev[0], dev[1], dev[1], dev[0])
 
+def test_dpp_chirp_ap_as_configurator(dev, apdev):
+    """DPP chirp with an AP as a standalone Configurator"""
+    check_dpp_capab(dev[0], min_ver=2)
+
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured"})
+    check_dpp_capab(hapd, min_ver=2)
+
+    id1 = dev[0].dpp_bootstrap_gen(chan="81/1")
+    uri = dev[0].request("DPP_BOOTSTRAP_GET_URI %d" % id1)
+
+    conf_id = hapd.dpp_configurator_add()
+    idc = hapd.dpp_qr_code(uri)
+    hapd.dpp_bootstrap_set(idc, conf="sta-dpp", configurator=conf_id)
+    hapd.dpp_listen(2412)
+
+    if "OK" not in dev[0].request("DPP_CHIRP own=%d iter=2" % id1):
+        raise Exception("DPP_CHIRP failed")
+
+    wait_auth_success(dev[0], hapd, hapd, dev[0])
+
 def test_dpp_chirp_configurator_inits(dev, apdev):
     """DPP chirp with a standalone Configurator initiating"""
     check_dpp_capab(dev[0])
@@ -5488,6 +5647,26 @@ def test_dpp_chirp_ap(dev, apdev):
     wait_auth_success(hapd, dev[0], configurator=dev[0], enrollee=hapd,
                       timeout=20)
     update_hapd_config(hapd)
+
+def test_dpp_chirp_ap_errors(dev, apdev):
+    """DPP chirp errors in hostapd"""
+    hapd = hostapd.add_ap(apdev[0], {"ssid": "unconfigured",
+                                     "start_disabled": "1"})
+    check_dpp_capab(hapd, min_ver=2)
+
+    id_h = hapd.dpp_bootstrap_gen(chan="81/1", mac=True)
+    uri = hapd.request("DPP_BOOTSTRAP_GET_URI %d" % id_h)
+    tests = ["",
+             "own=%d" % (id_h + 1),
+             "own=%d iter=-1" % id_h,
+             "own=%d listen=0" % id_h]
+    for t in tests:
+        if "FAIL" not in hapd.request("DPP_CHIRP " + t):
+            raise Exception("Invalid DPP_CHIRP accepted: " + t)
+    if "OK" not in hapd.request("DPP_CHIRP own=%d iter=5" % id_h):
+        raise Exception("DPP_CHIRP failed")
+
+    hapd.request("DPP_STOP_CHIRP")
 
 def start_dpp_pfs_ap(apdev, pfs, sae=False):
     params = {"ssid": "dpp",
@@ -5878,6 +6057,7 @@ def dpp_sign_cert(cacert, cakey, csr_der):
 
 def test_dpp_enterprise(dev, apdev, params):
     """DPP and enterprise EAP-TLS provisioning"""
+    check_dpp_capab(dev[0], min_ver=2)
     try:
         dev[0].set("dpp_config_processing", "2")
         run_dpp_enterprise(dev, apdev, params)

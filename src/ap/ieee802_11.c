@@ -687,42 +687,51 @@ static int auth_sae_send_confirm(struct hostapd_data *hapd,
 	return reply_res;
 }
 
+#endif /* CONFIG_SAE */
 
-static int use_sae_anti_clogging(struct hostapd_data *hapd)
+
+#if defined(CONFIG_SAE) || defined(CONFIG_PASN)
+
+static int use_anti_clogging(struct hostapd_data *hapd)
 {
 	struct sta_info *sta;
 	unsigned int open = 0;
 
-	if (hapd->conf->sae_anti_clogging_threshold == 0)
+	if (hapd->conf->anti_clogging_threshold == 0)
 		return 1;
 
 	for (sta = hapd->sta_list; sta; sta = sta->next) {
+#ifdef CONFIG_SAE
 		if (!sta->sae)
 			continue;
 		if (sta->sae->state != SAE_COMMITTED &&
 		    sta->sae->state != SAE_CONFIRMED)
 			continue;
 		open++;
-		if (open >= hapd->conf->sae_anti_clogging_threshold)
+#endif /* CONFIG_SAE */
+		if (open >= hapd->conf->anti_clogging_threshold)
 			return 1;
 	}
 
+#ifdef CONFIG_SAE
 	/* In addition to already existing open SAE sessions, check whether
 	 * there are enough pending commit messages in the processing queue to
 	 * potentially result in too many open sessions. */
 	if (open + dl_list_len(&hapd->sae_commit_queue) >=
-	    hapd->conf->sae_anti_clogging_threshold)
+	    hapd->conf->anti_clogging_threshold)
 		return 1;
+#endif /* CONFIG_SAE */
 
 	return 0;
 }
 
 
-static int sae_token_hash(struct hostapd_data *hapd, const u8 *addr, u8 *idx)
+static int comeback_token_hash(struct hostapd_data *hapd, const u8 *addr,
+			       u8 *idx)
 {
 	u8 hash[SHA256_MAC_LEN];
 
-	if (hmac_sha256(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256(hapd->comeback_key, sizeof(hapd->comeback_key),
 			addr, ETH_ALEN, hash) < 0)
 		return -1;
 	*idx = hash[0];
@@ -730,8 +739,8 @@ static int sae_token_hash(struct hostapd_data *hapd, const u8 *addr, u8 *idx)
 }
 
 
-static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
-			   const u8 *token, size_t token_len)
+static int check_comeback_token(struct hostapd_data *hapd, const u8 *addr,
+				const u8 *token, size_t token_len)
 {
 	u8 mac[SHA256_MAC_LEN];
 	const u8 *addrs[2];
@@ -739,11 +748,13 @@ static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
 	u16 token_idx;
 	u8 idx;
 
-	if (token_len != SHA256_MAC_LEN || sae_token_hash(hapd, addr, &idx) < 0)
+	if (token_len != SHA256_MAC_LEN ||
+	    comeback_token_hash(hapd, addr, &idx) < 0)
 		return -1;
-	token_idx = hapd->sae_pending_token_idx[idx];
+	token_idx = hapd->comeback_pending_idx[idx];
 	if (token_idx == 0 || token_idx != WPA_GET_BE16(token)) {
-		wpa_printf(MSG_DEBUG, "SAE: Invalid anti-clogging token from "
+		wpa_printf(MSG_DEBUG,
+			   "Comeback: Invalid anti-clogging token from "
 			   MACSTR " - token_idx 0x%04x, expected 0x%04x",
 			   MAC2STR(addr), WPA_GET_BE16(token), token_idx);
 		return -1;
@@ -753,12 +764,12 @@ static int check_sae_token(struct hostapd_data *hapd, const u8 *addr,
 	len[0] = ETH_ALEN;
 	addrs[1] = token;
 	len[1] = 2;
-	if (hmac_sha256_vector(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256_vector(hapd->comeback_key, sizeof(hapd->comeback_key),
 			       2, addrs, len, mac) < 0 ||
 	    os_memcmp_const(token + 2, &mac[2], SHA256_MAC_LEN - 2) != 0)
 		return -1;
 
-	hapd->sae_pending_token_idx[idx] = 0; /* invalidate used token */
+	hapd->comeback_pending_idx[idx] = 0; /* invalidate used token */
 
 	return 0;
 }
@@ -777,18 +788,18 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	u16 token_idx;
 
 	os_get_reltime(&now);
-	if (!os_reltime_initialized(&hapd->last_sae_token_key_update) ||
-	    os_reltime_expired(&now, &hapd->last_sae_token_key_update, 60) ||
-	    hapd->sae_token_idx == 0xffff) {
-		if (random_get_bytes(hapd->sae_token_key,
-				     sizeof(hapd->sae_token_key)) < 0)
+	if (!os_reltime_initialized(&hapd->last_comeback_key_update) ||
+	    os_reltime_expired(&now, &hapd->last_comeback_key_update, 60) ||
+	    hapd->comeback_idx == 0xffff) {
+		if (random_get_bytes(hapd->comeback_key,
+				     sizeof(hapd->comeback_key)) < 0)
 			return NULL;
-		wpa_hexdump(MSG_DEBUG, "SAE: Updated token key",
-			    hapd->sae_token_key, sizeof(hapd->sae_token_key));
-		hapd->last_sae_token_key_update = now;
-		hapd->sae_token_idx = 0;
-		os_memset(hapd->sae_pending_token_idx, 0,
-			  sizeof(hapd->sae_pending_token_idx));
+		wpa_hexdump(MSG_DEBUG, "Comeback: Updated token key",
+			    hapd->comeback_key, sizeof(hapd->comeback_key));
+		hapd->last_comeback_key_update = now;
+		hapd->comeback_idx = 0;
+		os_memset(hapd->comeback_pending_idx, 0,
+			  sizeof(hapd->comeback_pending_idx));
 	}
 
 	buf = wpabuf_alloc(sizeof(le16) + 3 + SHA256_MAC_LEN);
@@ -804,15 +815,16 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 		wpabuf_put_u8(buf, WLAN_EID_EXT_ANTI_CLOGGING_TOKEN);
 	}
 
-	if (sae_token_hash(hapd, addr, &p_idx) < 0) {
+	if (comeback_token_hash(hapd, addr, &p_idx) < 0) {
 		wpabuf_free(buf);
 		return NULL;
 	}
-	token_idx = hapd->sae_pending_token_idx[p_idx];
+
+	token_idx = hapd->comeback_pending_idx[p_idx];
 	if (!token_idx) {
-		hapd->sae_token_idx++;
-		token_idx = hapd->sae_token_idx;
-		hapd->sae_pending_token_idx[p_idx] = token_idx;
+		hapd->comeback_idx++;
+		token_idx = hapd->comeback_idx;
+		hapd->comeback_pending_idx[p_idx] = token_idx;
 	}
 	WPA_PUT_BE16(idx, token_idx);
 	token = wpabuf_put(buf, SHA256_MAC_LEN);
@@ -820,7 +832,7 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	len[0] = ETH_ALEN;
 	addrs[1] = idx;
 	len[1] = sizeof(idx);
-	if (hmac_sha256_vector(hapd->sae_token_key, sizeof(hapd->sae_token_key),
+	if (hmac_sha256_vector(hapd->comeback_key, sizeof(hapd->comeback_key),
 			       2, addrs, len, token) < 0) {
 		wpabuf_free(buf);
 		return NULL;
@@ -830,6 +842,10 @@ static struct wpabuf * auth_build_token_req(struct hostapd_data *hapd,
 	return buf;
 }
 
+#endif /* defined(CONFIG_SAE) || defined(CONFIG_PASN) */
+
+
+#ifdef CONFIG_SAE
 
 static int sae_check_big_sync(struct hostapd_data *hapd, struct sta_info *sta)
 {
@@ -1452,7 +1468,8 @@ static void handle_auth_sae(struct hostapd_data *hapd, struct sta_info *sta,
 			goto remove_sta;
 		}
 
-		if (token && check_sae_token(hapd, sta->addr, token, token_len)
+		if (token &&
+		    check_comeback_token(hapd, sta->addr, token, token_len)
 		    < 0) {
 			wpa_printf(MSG_DEBUG, "SAE: Drop commit message with "
 				   "incorrect token from " MACSTR,
@@ -1469,7 +1486,7 @@ static void handle_auth_sae(struct hostapd_data *hapd, struct sta_info *sta,
 			goto reply;
 		}
 
-		if (!token && use_sae_anti_clogging(hapd) && !allow_reuse) {
+		if (!token && use_anti_clogging(hapd) && !allow_reuse) {
 			int h2e = 0;
 
 			wpa_printf(MSG_DEBUG,
@@ -2881,12 +2898,13 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 {
 	struct wpabuf *buf, *pubkey = NULL, *wrapped_data_buf = NULL;
 	u8 mic[WPA_PASN_MAX_MIC_LEN];
-	u8 mic_len, frame_len, data_len;
+	u8 mic_len;
 	u8 *ptr;
 	const u8 *frame, *data, *rsn_ie, *rsnxe_ie;
 	u8 *data_buf = NULL;
-	size_t rsn_ie_len;
+	size_t rsn_ie_len, frame_len, data_len;
 	int ret;
+	const u8 *pmkid = NULL;
 
 	wpa_printf(MSG_DEBUG, "PASN: Building frame 2: status=%u", status);
 
@@ -2900,7 +2918,22 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 	if (status != WLAN_STATUS_SUCCESS)
 		goto done;
 
-	if (wpa_pasn_add_rsne(buf, pmksa ? pmksa->pmkid : NULL,
+	if (pmksa) {
+		pmkid = pmksa->pmkid;
+#ifdef CONFIG_SAE
+	} else if (sta->pasn->akmp == WPA_KEY_MGMT_SAE) {
+		wpa_printf(MSG_DEBUG, "PASN: Use SAE PMKID");
+		pmkid = sta->pasn->sae.pmkid;
+#endif /* CONFIG_SAE */
+#ifdef CONFIG_FILS
+	} else if (sta->pasn->akmp == WPA_KEY_MGMT_FILS_SHA256 ||
+		   sta->pasn->akmp == WPA_KEY_MGMT_FILS_SHA384) {
+		wpa_printf(MSG_DEBUG, "PASN: Use FILS ERP PMKID");
+		pmkid = sta->pasn->fils.erp_pmkid;
+#endif /* CONFIG_FILS */
+	}
+
+	if (wpa_pasn_add_rsne(buf, pmkid,
 			      sta->pasn->akmp, sta->pasn->cipher) < 0)
 		goto fail;
 
@@ -2921,7 +2954,7 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 
 	wpa_pasn_add_parameter_ie(buf, sta->pasn->group,
 				  sta->pasn->wrapped_data_format,
-				  pubkey, NULL, 0);
+				  pubkey, true, NULL, 0);
 
 	if (wpa_pasn_add_wrapped_data(buf, wrapped_data_buf) < 0)
 		goto fail;
@@ -2979,6 +3012,13 @@ static int handle_auth_pasn_resp(struct hostapd_data *hapd,
 		goto fail;
 	}
 
+#ifdef CONFIG_TESTING_OPTIONS
+	if (hapd->conf->pasn_corrupt_mic) {
+		wpa_printf(MSG_DEBUG, "PASN: frame 2: Corrupt MIC");
+		mic[0] = ~mic[0];
+	}
+#endif /* CONFIG_TESTING_OPTIONS */
+
 	os_memcpy(ptr, mic, mic_len);
 
 done:
@@ -3018,7 +3058,7 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 	const int *groups = hapd->conf->pasn_groups;
 	static const int default_groups[] = { 19, 0 };
 	u16 status = WLAN_STATUS_SUCCESS;
-	int ret;
+	int ret, inc_y;
 	bool derive_keys;
 	u32 i;
 
@@ -3102,9 +3142,22 @@ static void handle_auth_pasn_1(struct hostapd_data *hapd, struct sta_info *sta,
 
 	sta->pasn->group = pasn_params.group;
 
-	secret = crypto_ecdh_set_peerkey(sta->pasn->ecdh, 0,
-					 pasn_params.pubkey,
-					 pasn_params.pubkey_len);
+	if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_UNCOMPRESSED) {
+		inc_y = 1;
+	} else if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_0 ||
+		   pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_1) {
+		inc_y = 0;
+	} else {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: Invalid first octet in pubkey=0x%x",
+			   pasn_params.pubkey[0]);
+		status = WLAN_STATUS_UNSPECIFIED_FAILURE;
+		goto send_resp;
+	}
+
+	secret = crypto_ecdh_set_peerkey(sta->pasn->ecdh, inc_y,
+					 pasn_params.pubkey + 1,
+					 pasn_params.pubkey_len - 1);
 	if (!secret) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to derive shared secret");
 		status = WLAN_STATUS_UNSPECIFIED_FAILURE;
@@ -5783,6 +5836,9 @@ static void handle_deauth(struct hostapd_data *hapd,
 	wpa_msg(hapd->msg_ctx, MSG_DEBUG, "deauthentication: STA=" MACSTR
 		" reason_code=%d",
 		MAC2STR(mgmt->sa), le_to_host16(mgmt->u.deauth.reason_code));
+
+	/* Clear the PTKSA cache entries for PASN */
+	ptksa_cache_flush(hapd->ptksa, mgmt->sa, WPA_CIPHER_NONE);
 
 	sta = ap_get_sta(hapd, mgmt->sa);
 	if (sta == NULL) {

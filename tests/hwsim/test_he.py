@@ -26,6 +26,22 @@ def test_he_open(dev, apdev):
     if hapd.get_status_field("ieee80211ax") != "1":
         raise Exception("STATUS did not indicate ieee80211ac=1")
     dev[0].connect("he", key_mgmt="NONE", scan_freq="2412")
+    sta = hapd.get_sta(dev[0].own_addr())
+    if "[HE]" not in sta['flags']:
+        raise Exception("Missing STA flag: HE")
+
+def test_he_disabled_on_sta(dev, apdev):
+    """HE AP and HE disabled on STA"""
+    params = {"ssid": "he",
+              "ieee80211ax": "1",
+              "he_bss_color": "42",
+              "he_mu_edca_ac_be_ecwmin": "7",
+              "he_mu_edca_ac_be_ecwmax": "15"}
+    hapd = hostapd.add_ap(apdev[0], params)
+    dev[0].connect("he", key_mgmt="NONE", scan_freq="2412", disable_he="1")
+    sta = hapd.get_sta(dev[0].own_addr())
+    if "[HE]" in sta['flags']:
+        raise Exception("Unexpected STA flag: HE")
 
 def test_he_params(dev, apdev):
     """HE AP parameters"""
@@ -1094,3 +1110,61 @@ def test_he80_to_24g_he(dev, apdev):
     finally:
         dev[0].request("DISCONNECT")
         clear_regdom(hapd, dev)
+
+def test_he_twt(dev, apdev):
+    """HE and TWT"""
+    params = {"ssid": "he",
+              "ieee80211ax": "1",
+              "he_bss_color": "42",
+              "he_twt_required":"1"}
+    hapd = hostapd.add_ap(apdev[0], params)
+
+    dev[0].connect("he", key_mgmt="NONE", scan_freq="2412")
+    if "OK" not in dev[0].request("TWT_SETUP"):
+        raise Exception("TWT_SETUP failed")
+    if "OK" not in dev[0].request("TWT_TEARDOWN"):
+        raise Exception("TWT_SETUP failed")
+    if "OK" not in dev[0].request("TWT_SETUP dialog=123 exponent=9 mantissa=10 min_twt=254 setup_cmd=1 twt=1234567890 requestor=1 trigger=0 implicit=0 flow_type=0 flow_id=2 protection=1 twt_channel=3 control=16"):
+        raise Exception("TWT_SETUP failed")
+    if "OK" not in dev[0].request("TWT_TEARDOWN flags=255"):
+        raise Exception("TWT_SETUP failed")
+
+def test_he_6ghz_security(dev, apdev):
+    """HE AP and 6 GHz security parameter validation"""
+    params = {"ssid": "he",
+              "ieee80211ax": "1",
+              "op_class": "131",
+              "channel": "1"}
+    hapd = hostapd.add_ap(apdev[0], params, no_enable=True)
+
+    # Pre-RSNA security methods are not allowed in 6 GHz
+    if "FAIL" not in hapd.request("ENABLE"):
+        raise Exception("Invalid configuration accepted(1)")
+
+    # Management frame protection is required in 6 GHz"
+    hapd.set("wpa", "2")
+    hapd.set("wpa_passphrase", "12345678")
+    hapd.set("wpa_key_mgmt", "SAE")
+    hapd.set("rsn_pairwise", "CCMP")
+    hapd.set("ieee80211w", "1")
+    if "FAIL" not in hapd.request("ENABLE"):
+        raise Exception("Invalid configuration accepted(2)")
+
+    # Invalid AKM suite for 6 GHz
+    hapd.set("ieee80211w", "2")
+    hapd.set("wpa_key_mgmt", "SAE WPA-PSK")
+    if "FAIL" not in hapd.request("ENABLE"):
+        raise Exception("Invalid configuration accepted(3)")
+
+    # Invalid pairwise cipher suite for 6 GHz
+    hapd.set("wpa_key_mgmt", "SAE")
+    hapd.set("rsn_pairwise", "CCMP TKIP")
+    if "FAIL" not in hapd.request("ENABLE"):
+        raise Exception("Invalid configuration accepted(4)")
+
+    # Invalid group cipher suite for 6 GHz
+    hapd.set("wpa_key_mgmt", "SAE")
+    hapd.set("rsn_pairwise", "CCMP")
+    hapd.set("group_cipher", "TKIP")
+    if "FAIL" not in hapd.request("ENABLE"):
+        raise Exception("Invalid configuration accepted(5)")

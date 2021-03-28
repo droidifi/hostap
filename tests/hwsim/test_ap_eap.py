@@ -5350,6 +5350,15 @@ def test_ap_wpa2_eap_sql(dev, apdev, params):
         eap_connect(dev[1], hapd, "TTLS", "user-pap",
                     anonymous_identity="ttls", password="password",
                     ca_cert="auth_serv/ca.pem", phase2="auth=PAP")
+        dev[0].request("REMOVE_NETWORK all")
+        dev[1].request("REMOVE_NETWORK all")
+        dev[0].wait_disconnected()
+        dev[1].wait_disconnected()
+        hapd.disable()
+        hapd.enable()
+        eap_connect(dev[0], hapd, "TTLS", "user-mschapv2",
+                    anonymous_identity="ttls", password="password",
+                    ca_cert="auth_serv/ca.pem", phase2="auth=MSCHAPV2")
     finally:
         os.remove(dbfile)
 
@@ -6701,6 +6710,62 @@ def test_ap_wpa2_eap_sim_db(dev, apdev, params):
     server.RequestHandlerClass = test_handler2
 
     dev[0].select_network(id)
+    server.handle_request()
+    dev[0].wait_connected()
+    dev[0].request("DISCONNECT")
+    dev[0].wait_disconnected()
+
+def test_ap_wpa2_eap_sim_db_sqlite(dev, apdev, params):
+    """EAP-SIM DB error cases (SQLite)"""
+    sockpath = '/tmp/hlr_auc_gw.sock-test'
+    try:
+        os.remove(sockpath)
+    except:
+        pass
+    hparams = int_eap_server_params()
+    hparams['eap_sim_db'] = 'unix:' + sockpath
+    hapd = hostapd.add_ap(apdev[0], hparams)
+
+    fname = params['prefix'] + ".milenage_db.sqlite"
+    cmd = subprocess.Popen(['../../hostapd/hlr_auc_gw',
+                            '-D', fname, "FOO"],
+                           stdout=subprocess.PIPE)
+    res = cmd.stdout.read().decode().strip()
+    cmd.stdout.close()
+    logger.debug("hlr_auc_gw response: " + res)
+
+    try:
+        import sqlite3
+    except ImportError:
+        raise HwsimSkip("No sqlite3 module available")
+    con = sqlite3.connect(fname)
+    with con:
+        cur = con.cursor()
+        try:
+            cur.execute("INSERT INTO milenage(imsi,ki,opc,amf,sqn) VALUES ('232010000000000', '90dca4eda45b53cf0f12d7c9c3bc6a89', 'cb9cccc4b9258e6dca4760379fb82581', '61df', '000000000000')")
+        except sqlite3.IntegrityError as e:
+            pass
+
+    class test_handler3(SocketServer.DatagramRequestHandler):
+        def handle(self):
+            data = self.request[0].decode().strip()
+            socket = self.request[1]
+            logger.debug("Received hlr_auc_gw request: " + data)
+            cmd = subprocess.Popen(['../../hostapd/hlr_auc_gw',
+                                    '-D', fname, data],
+                                   stdout=subprocess.PIPE)
+            res = cmd.stdout.read().decode().strip()
+            cmd.stdout.close()
+            logger.debug("hlr_auc_gw response: " + res)
+            socket.sendto(res.encode(), self.client_address)
+
+    server = SocketServer.UnixDatagramServer(sockpath, test_handler3)
+    server.timeout = 1
+
+    id = dev[0].connect("test-wpa2-eap", key_mgmt="WPA-EAP WPA-EAP-SHA256",
+                        eap="SIM", identity="1232010000000000",
+                        password="90dca4eda45b53cf0f12d7c9c3bc6a89:cb9cccc4b9258e6dca4760379fb82581",
+                        scan_freq="2412", wait_connect=False)
     server.handle_request()
     dev[0].wait_connected()
     dev[0].request("DISCONNECT")

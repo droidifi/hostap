@@ -900,7 +900,7 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 		return NUM_HOSTAPD_MODES;
 
     /* 802.11ah */
-    if (freq <= 928) {
+    if (freq <= 1000) {
             *channel = freq;
             *op_class = 0;
             return HOSTAPD_MODE_IEEE80211AH;
@@ -2245,6 +2245,9 @@ int oper_class_bw_to_int(const struct oper_class_map *map)
 
 int center_idx_to_bw_6ghz(u8 idx)
 {
+	/* Channel: 2 */
+	if (idx == 2)
+		return 0; /* 20 MHz */
 	/* channels: 1, 5, 9, 13... */
 	if ((idx & 0x3) == 0x1)
 		return 0; /* 20 MHz */

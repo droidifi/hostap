@@ -149,7 +149,7 @@ struct wpa_driver_nl80211_data {
 	unsigned int ignore_next_local_disconnect:1;
 	unsigned int ignore_next_local_deauth:1;
 	unsigned int hostapd:1;
-	unsigned int start_mode_ap:1;
+	unsigned int start_mode_sta:1;
 	unsigned int start_iface_up:1;
 	unsigned int test_use_roc_tx:1;
 	unsigned int ignore_deauth_event:1;
@@ -274,7 +274,7 @@ int wpa_driver_nl80211_set_mode(struct i802_bss *bss,
 int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
 			    const u8 *addr, int cmd, u16 reason_code,
 			    int local_state_change,
-			    struct nl_sock *nl_connect);
+			    struct i802_bss *bss);
 
 int nl80211_create_monitor_interface(struct wpa_driver_nl80211_data *drv);
 void nl80211_remove_monitor_interface(struct wpa_driver_nl80211_data *drv);

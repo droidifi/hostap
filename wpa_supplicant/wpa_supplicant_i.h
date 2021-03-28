@@ -621,6 +621,7 @@ struct wpa_supplicant {
 	u8 pending_bssid[ETH_ALEN]; /* If wpa_state == WPA_ASSOCIATING, this
 				     * field contains the target BSSID. */
 	int reassociate; /* reassociation requested */
+	bool roam_in_progress; /* roam in progress */
 	unsigned int reassoc_same_bss:1; /* reassociating to the same BSS */
 	unsigned int reassoc_same_ess:1; /* reassociating to the same ESS */
 	int disconnected; /* all connections disabled; i.e., do no reassociate
@@ -1513,6 +1514,14 @@ void add_freq(int *freqs, int *num_freqs, int freq);
 
 int wpas_get_op_chan_phy(int freq, const u8 *ies, size_t ies_len,
 			 u8 *op_class, u8 *chan, u8 *phy_type);
+
+int wpas_twt_send_setup(struct wpa_supplicant *wpa_s, u8 dtok, int exponent,
+			int mantissa, u8 min_twt, int setup_cmd, u64 twt,
+			bool requestor, bool trigger, bool implicit,
+			bool flow_type, u8 flow_id, bool protection,
+			u8 twt_channel, u8 control);
+int wpas_twt_send_teardown(struct wpa_supplicant *wpa_s, u8 flags);
+
 void wpas_rrm_reset(struct wpa_supplicant *wpa_s);
 void wpas_rrm_process_neighbor_rep(struct wpa_supplicant *wpa_s,
 				   const u8 *report, size_t report_len);
@@ -1727,5 +1736,7 @@ int wpas_pasn_auth_tx_status(struct wpa_supplicant *wpa_s,
 			     const u8 *data, size_t data_len, u8 acked);
 int wpas_pasn_auth_rx(struct wpa_supplicant *wpa_s,
 		      const struct ieee80211_mgmt *mgmt, size_t len);
+
+int wpas_pasn_deauthenticate(struct wpa_supplicant *wpa_s, const u8 *bssid);
 
 #endif /* WPA_SUPPLICANT_I_H */

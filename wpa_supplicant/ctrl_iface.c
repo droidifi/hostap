@@ -5656,6 +5656,7 @@ static int wpa_supplicant_ctrl_iface_roam(struct wpa_supplicant *wpa_s,
 	u8 bssid[ETH_ALEN];
 	struct wpa_bss *bss;
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
+	struct wpa_radio_work *already_connecting;
 
 	if (hwaddr_aton(addr, bssid)) {
 		wpa_printf(MSG_DEBUG, "CTRL_IFACE ROAM: invalid "
@@ -5683,8 +5684,17 @@ static int wpa_supplicant_ctrl_iface_roam(struct wpa_supplicant *wpa_s,
 	 * allow roaming to other networks
 	 */
 
+	already_connecting = radio_work_pending(wpa_s, "sme-connect");
 	wpa_s->reassociate = 1;
 	wpa_supplicant_connect(wpa_s, bss, ssid);
+
+	/*
+	 * Indicate that an explicitly requested roam is in progress so scan
+	 * results that come in before the 'sme-connect' radio work gets
+	 * executed do not override the original connection attempt.
+	 */
+	if (!already_connecting && radio_work_pending(wpa_s, "sme-connect"))
+		wpa_s->roam_in_progress = true;
 
 	return 0;
 #endif /* CONFIG_NO_SCAN_PROCESSING */
@@ -9782,6 +9792,103 @@ static int wpas_ctrl_resend_assoc(struct wpa_supplicant *wpa_s)
 #endif /* CONFIG_SME */
 }
 
+
+static int wpas_ctrl_iface_send_twt_setup(struct wpa_supplicant *wpa_s,
+					  const char *cmd)
+{
+	u8 dtok = 1;
+	int exponent = 10;
+	int mantissa = 8192;
+	u8 min_twt = 255;
+	unsigned long long twt = 0;
+	bool requestor = true;
+	int setup_cmd = 0;
+	bool trigger = true;
+	bool implicit = true;
+	bool flow_type = true;
+	int flow_id = 0;
+	bool protection = false;
+	u8 twt_channel = 0;
+	u8 control = BIT(4); /* Control field (IEEE P802.11ax/D8.0 Figure
+			      * 9-687): B4 = TWT Information Frame Disabled */
+	const char *tok_s;
+
+	tok_s = os_strstr(cmd, " dialog=");
+	if (tok_s)
+		dtok = atoi(tok_s + os_strlen(" dialog="));
+
+	tok_s = os_strstr(cmd, " exponent=");
+	if (tok_s)
+		exponent = atoi(tok_s + os_strlen(" exponent="));
+
+	tok_s = os_strstr(cmd, " mantissa=");
+	if (tok_s)
+		mantissa = atoi(tok_s + os_strlen(" mantissa="));
+
+	tok_s = os_strstr(cmd, " min_twt=");
+	if (tok_s)
+		min_twt = atoi(tok_s + os_strlen(" min_twt="));
+
+	tok_s = os_strstr(cmd, " setup_cmd=");
+	if (tok_s)
+		setup_cmd = atoi(tok_s + os_strlen(" setup_cmd="));
+
+	tok_s = os_strstr(cmd, " twt=");
+	if (tok_s)
+		sscanf(tok_s + os_strlen(" twt="), "%llu", &twt);
+
+	tok_s = os_strstr(cmd, " requestor=");
+	if (tok_s)
+		requestor = atoi(tok_s + os_strlen(" requestor="));
+
+	tok_s = os_strstr(cmd, " trigger=");
+	if (tok_s)
+		trigger = atoi(tok_s + os_strlen(" trigger="));
+
+	tok_s = os_strstr(cmd, " implicit=");
+	if (tok_s)
+		implicit = atoi(tok_s + os_strlen(" implicit="));
+
+	tok_s = os_strstr(cmd, " flow_type=");
+	if (tok_s)
+		flow_type = atoi(tok_s + os_strlen(" flow_type="));
+
+	tok_s = os_strstr(cmd, " flow_id=");
+	if (tok_s)
+		flow_id = atoi(tok_s + os_strlen(" flow_id="));
+
+	tok_s = os_strstr(cmd, " protection=");
+	if (tok_s)
+		protection = atoi(tok_s + os_strlen(" protection="));
+
+	tok_s = os_strstr(cmd, " twt_channel=");
+	if (tok_s)
+		twt_channel = atoi(tok_s + os_strlen(" twt_channel="));
+
+	tok_s = os_strstr(cmd, " control=");
+	if (tok_s)
+		control = atoi(tok_s + os_strlen(" control="));
+
+	return wpas_twt_send_setup(wpa_s, dtok, exponent, mantissa, min_twt,
+				   setup_cmd, twt, requestor, trigger, implicit,
+				   flow_type, flow_id, protection, twt_channel,
+				   control);
+}
+
+
+static int wpas_ctrl_iface_send_twt_teardown(struct wpa_supplicant *wpa_s,
+					     const char *cmd)
+{
+	u8 flags = 0x1;
+	const char *tok_s;
+
+	tok_s = os_strstr(cmd, " flags=");
+	if (tok_s)
+		flags = atoi(tok_s + os_strlen(" flags="));
+
+	return wpas_twt_send_teardown(wpa_s, flags);
+}
+
 #endif /* CONFIG_TESTING_OPTIONS */
 
 
@@ -10548,6 +10655,22 @@ static int wpas_ctrl_iface_pasn_start(struct wpa_supplicant *wpa_s, char *cmd)
 
 	return wpas_pasn_auth_start(wpa_s, bssid, akmp, cipher, group, id);
 }
+
+
+static int wpas_ctrl_iface_pasn_deauthenticate(struct wpa_supplicant *wpa_s,
+					       const char *cmd)
+{
+	u8 bssid[ETH_ALEN];
+
+	if (os_strncmp(cmd, "bssid=", 6) != 0 || hwaddr_aton(cmd + 6, bssid)) {
+		wpa_printf(MSG_DEBUG,
+			   "CTRL: PASN_DEAUTH without valid BSSID");
+		return -1;
+	}
+
+	return wpas_pasn_deauthenticate(wpa_s, bssid);
+}
+
 #endif /* CONFIG_PASN */
 
 
@@ -11275,6 +11398,18 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 		sme_event_unprot_disconnect(
 			wpa_s, wpa_s->bssid, NULL,
 			WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
+	} else if (os_strncmp(buf, "TWT_SETUP ", 10) == 0) {
+		if (wpas_ctrl_iface_send_twt_setup(wpa_s, buf + 9))
+			reply_len = -1;
+	} else if (os_strcmp(buf, "TWT_SETUP") == 0) {
+		if (wpas_ctrl_iface_send_twt_setup(wpa_s, ""))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "TWT_TEARDOWN ", 13) == 0) {
+		if (wpas_ctrl_iface_send_twt_teardown(wpa_s, buf + 12))
+			reply_len = -1;
+	} else if (os_strcmp(buf, "TWT_TEARDOWN") == 0) {
+		if (wpas_ctrl_iface_send_twt_teardown(wpa_s, ""))
+			reply_len = -1;
 #endif /* CONFIG_TESTING_OPTIONS */
 	} else if (os_strncmp(buf, "VENDOR_ELEM_ADD ", 16) == 0) {
 		if (wpas_ctrl_vendor_elem_add(wpa_s, buf + 16) < 0)
@@ -11457,6 +11592,9 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 		wpas_pasn_auth_stop(wpa_s);
 	} else if (os_strcmp(buf, "PTKSA_CACHE_LIST") == 0) {
 		reply_len = ptksa_cache_list(wpa_s->ptksa, reply, reply_size);
+	} else if (os_strncmp(buf, "PASN_DEAUTH ", 12) == 0) {
+		if (wpas_ctrl_iface_pasn_deauthenticate(wpa_s, buf + 12) < 0)
+			reply_len = -1;
 #endif /* CONFIG_PASN */
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);

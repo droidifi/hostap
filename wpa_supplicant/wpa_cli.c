@@ -2927,6 +2927,20 @@ static int wpa_cli_cmd_neighbor_rep_request(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+static int wpa_cli_cmd_twt_setup(struct wpa_ctrl *ctrl, int argc,
+				 char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "TWT_SETUP", 0, argc, argv);
+}
+
+
+static int wpa_cli_cmd_twt_teardown(struct wpa_ctrl *ctrl, int argc,
+				    char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "TWT_TEARDOWN", 0, argc, argv);
+}
+
+
 static int wpa_cli_cmd_erp_flush(struct wpa_ctrl *ctrl, int argc, char *argv[])
 {
 	return wpa_ctrl_command(ctrl, "ERP_FLUSH");
@@ -3195,6 +3209,13 @@ static int wpa_cli_cmd_ptksa_cache_list(struct wpa_ctrl *ctrl, int argc,
 					char *argv[])
 {
 	return wpa_cli_cmd(ctrl, "PTKSA_CACHE_LIST", 0, argc, argv);
+}
+
+
+static int wpa_cli_cmd_pasn_deauth(struct wpa_ctrl *ctrl, int argc,
+				   char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "PASN_DEAUTH", 1, argc, argv);
 }
 
 #endif /* CONFIG_PASN */
@@ -3806,6 +3827,14 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	  wpa_cli_cmd_neighbor_rep_request, NULL, cli_cmd_flag_none,
 	  "[ssid=<SSID>] [lci] [civic] = Trigger request to AP for neighboring AP report (with optional given SSID in hex or enclosed in double quotes, default: current SSID; with optional LCI and location civic request)"
 	},
+	{ "twt_setup",
+	  wpa_cli_cmd_twt_setup, NULL, cli_cmd_flag_none,
+	  "[dialog=<token>] [exponent=<exponent>] [mantissa=<mantissa>] [min_twt=<Min TWT>] [setup_cmd=<setup-cmd>] [twt=<u64>] [requestor=0|1] [trigger=0|1] [implicit=0|1] [flow_type=0|1] [flow_id=<3-bit-id>] [protection=0|1] [twt_channel=<twt chanel id>] [control=<control-u8>] = Send TWT Setup frame"
+	},
+	{ "twt_teardown",
+	  wpa_cli_cmd_twt_teardown, NULL, cli_cmd_flag_none,
+	  "[flags=<value>] = Send TWT Teardown frame"
+	},
 	{ "erp_flush", wpa_cli_cmd_erp_flush, NULL, cli_cmd_flag_none,
 	  "= flush ERP keys" },
 	{ "mac_rand_scan",
@@ -3892,6 +3921,9 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "ptksa_cache_list", wpa_cli_cmd_ptksa_cache_list, NULL,
 	  cli_cmd_flag_none,
 	  "= Get the PTKSA Cache" },
+	{ "pasn_deauth", wpa_cli_cmd_pasn_deauth, NULL,
+	  cli_cmd_flag_none,
+	  "bssid=<BSSID> = Remove PASN PTKSA state" },
 #endif /* CONFIG_PASN */
 	{ NULL, NULL, NULL, cli_cmd_flag_none, NULL }
 };

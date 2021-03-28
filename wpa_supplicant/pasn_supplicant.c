@@ -680,7 +680,7 @@ static struct wpabuf * wpas_pasn_build_auth_1(struct wpa_supplicant *wpa_s)
 		wrapped_data = WPA_PASN_WRAPPED_DATA_NO;
 
 	wpa_pasn_add_parameter_ie(buf, pasn->group, wrapped_data,
-				  pubkey, NULL, -1);
+				  pubkey, true, NULL, -1);
 
 	if (wpa_pasn_add_wrapped_data(buf, wrapped_data_buf) < 0)
 		goto fail;
@@ -753,7 +753,7 @@ static struct wpabuf * wpas_pasn_build_auth_3(struct wpa_supplicant *wpa_s)
 		wrapped_data = WPA_PASN_WRAPPED_DATA_NO;
 
 	wpa_pasn_add_parameter_ie(buf, pasn->group, wrapped_data,
-				  NULL, NULL, -1);
+				  NULL, false, NULL, -1);
 
 	if (wpa_pasn_add_wrapped_data(buf, wrapped_data_buf) < 0)
 		goto fail;
@@ -778,6 +778,13 @@ static struct wpabuf * wpas_pasn_build_auth_3(struct wpa_supplicant *wpa_s)
 		wpa_printf(MSG_DEBUG, "PASN: frame 3: Failed MIC calculation");
 		goto fail;
 	}
+
+#ifdef CONFIG_TESTING_OPTIONS
+	if (wpa_s->conf->pasn_corrupt_mic) {
+		wpa_printf(MSG_DEBUG, "PASN: frame 3: Corrupt MIC");
+		mic[0] = ~mic[0];
+	}
+#endif /* CONFIG_TESTING_OPTIONS */
 
 	os_memcpy(ptr, mic, mic_len);
 
@@ -1226,7 +1233,7 @@ int wpas_pasn_auth_rx(struct wpa_supplicant *wpa_s,
 	u8 mic[WPA_PASN_MAX_MIC_LEN], out_mic[WPA_PASN_MAX_MIC_LEN];
 	u8 mic_len;
 	u16 status;
-	int ret;
+	int ret, inc_y;
 	u16 fc = host_to_le16((WLAN_FC_TYPE_MGMT << 2) |
 			      (WLAN_FC_STYPE_AUTH << 4));
 
@@ -1344,9 +1351,21 @@ int wpas_pasn_auth_rx(struct wpa_supplicant *wpa_s,
 		goto fail;
 	}
 
-	secret = crypto_ecdh_set_peerkey(pasn->ecdh, 0,
-					 pasn_params.pubkey,
-					 pasn_params.pubkey_len);
+	if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_UNCOMPRESSED) {
+		inc_y = 1;
+	} else if (pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_0 ||
+		   pasn_params.pubkey[0] == WPA_PASN_PUBKEY_COMPRESSED_1) {
+		inc_y = 0;
+	} else {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: Invalid first octet in pubkey=0x%x",
+			   pasn_params.pubkey[0]);
+		goto fail;
+	}
+
+	secret = crypto_ecdh_set_peerkey(pasn->ecdh, inc_y,
+					 pasn_params.pubkey + 1,
+					 pasn_params.pubkey_len - 1);
 
 	if (!secret) {
 		wpa_printf(MSG_DEBUG, "PASN: Failed to derive shared secret");
@@ -1506,4 +1525,60 @@ int wpas_pasn_auth_tx_status(struct wpa_supplicant *wpa_s,
 	}
 
 	return 0;
+}
+
+
+int wpas_pasn_deauthenticate(struct wpa_supplicant *wpa_s, const u8 *bssid)
+{
+	struct wpa_bss *bss;
+	struct wpabuf *buf;
+	struct ieee80211_mgmt *deauth;
+	int ret;
+
+	if (os_memcmp(wpa_s->bssid, bssid, ETH_ALEN) == 0) {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: Cannot deauthenticate from current BSS");
+		return -1;
+	}
+
+	wpa_printf(MSG_DEBUG, "PASN: deauth: Flushing all PTKSA entries for "
+		   MACSTR, MAC2STR(bssid));
+	ptksa_cache_flush(wpa_s->ptksa, bssid, WPA_CIPHER_NONE);
+
+	bss = wpa_bss_get_bssid(wpa_s, bssid);
+	if (!bss) {
+		wpa_printf(MSG_DEBUG, "PASN: deauth: BSS not found");
+		return -1;
+	}
+
+	buf = wpabuf_alloc(64);
+	if (!buf) {
+		wpa_printf(MSG_DEBUG, "PASN: deauth: Failed wpabuf allocate");
+		return -1;
+	}
+
+	deauth = wpabuf_put(buf, offsetof(struct ieee80211_mgmt,
+					  u.deauth.variable));
+
+	deauth->frame_control = host_to_le16((WLAN_FC_TYPE_MGMT << 2) |
+					     (WLAN_FC_STYPE_DEAUTH << 4));
+
+	os_memcpy(deauth->da, bssid, ETH_ALEN);
+	os_memcpy(deauth->sa, wpa_s->own_addr, ETH_ALEN);
+	os_memcpy(deauth->bssid, bssid, ETH_ALEN);
+	deauth->u.deauth.reason_code =
+		host_to_le16(WLAN_REASON_PREV_AUTH_NOT_VALID);
+
+	/*
+	 * Since we do not expect any response from the AP, implement the
+	 * Deauthentication frame transmission using direct call to the driver
+	 * without a radio work.
+	 */
+	ret = wpa_drv_send_mlme(wpa_s, wpabuf_head(buf), wpabuf_len(buf), 1,
+				bss->freq, 0);
+
+	wpabuf_free(buf);
+	wpa_printf(MSG_DEBUG, "PASN: deauth: send_mlme ret=%d", ret);
+
+	return ret;
 }

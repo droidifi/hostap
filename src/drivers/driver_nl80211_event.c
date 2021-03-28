@@ -626,6 +626,11 @@ static int calculate_chan_offset(int width, int freq, int cf1, int cf2)
 	int freq1 = 0;
 
 	switch (convert2width(width)) {
+	case CHAN_WIDTH_1:
+	case CHAN_WIDTH_2:
+	case CHAN_WIDTH_4:
+	case CHAN_WIDTH_8:
+	case CHAN_WIDTH_16:        
 	case CHAN_WIDTH_20_NOHT:
 	case CHAN_WIDTH_20:
 		return 0;
@@ -751,7 +756,7 @@ static void mlme_timeout_event(struct wpa_driver_nl80211_data *drv,
 
 
 static void mlme_event_mgmt(struct i802_bss *bss,
-			    struct nlattr *freq, struct nlattr *sig,
+			    u32 freq, struct nlattr *sig,
 			    const u8 *frame, size_t len)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
@@ -774,11 +779,8 @@ static void mlme_event_mgmt(struct i802_bss *bss,
 	if (sig)
 		ssi_signal = (s32) nla_get_u32(sig);
 
-	os_memset(&event, 0, sizeof(event));
-	if (freq) {
-		event.rx_mgmt.freq = nla_get_u32(freq);
-		rx_freq = drv->last_mgmt_freq = event.rx_mgmt.freq;
-	}
+	event.rx_mgmt.freq = freq;
+	rx_freq = drv->last_mgmt_freq = event.rx_mgmt.freq;
 	wpa_printf(MSG_DEBUG,
 		   "nl80211: RX frame da=" MACSTR " sa=" MACSTR " bssid=" MACSTR
 		   " freq=%d ssi_signal=%d fc=0x%x seq_ctrl=0x%x stype=%u (%s) len=%u",
@@ -1039,11 +1041,13 @@ static void mlme_event_unprot_beacon(struct wpa_driver_nl80211_data *drv,
 static void mlme_event(struct i802_bss *bss,
 		       enum nl80211_commands cmd, struct nlattr *frame,
 		       struct nlattr *addr, struct nlattr *timed_out,
-		       struct nlattr *freq, struct nlattr *ack,
+		       struct nlattr *freq, struct nlattr *freq_offset,
+               struct nlattr *ack,
 		       struct nlattr *cookie, struct nlattr *sig,
 		       struct nlattr *wmm, struct nlattr *req_ie)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
+    u32 frequency = 0;
 	const u8 *data;
 	size_t len;
 
@@ -1058,6 +1062,11 @@ static void mlme_event(struct i802_bss *bss,
 			   cmd, nl80211_command_to_string(cmd));
 		return;
 	}
+	
+	if (freq)
+		frequency = KHZ(nla_get_u32(freq));
+	if (freq_offset)
+		frequency += nla_get_u32(freq_offset);
 
 	data = nla_data(frame);
 	len = nla_len(frame);
@@ -1102,7 +1111,7 @@ static void mlme_event(struct i802_bss *bss,
 					   nla_data(frame), nla_len(frame));
 		break;
 	case NL80211_CMD_FRAME:
-		mlme_event_mgmt(bss, freq, sig, nla_data(frame),
+		mlme_event_mgmt(bss, frequency, sig, nla_data(frame),
 				nla_len(frame));
 		break;
 	case NL80211_CMD_FRAME_TX_STATUS:
@@ -1291,6 +1300,7 @@ static void mlme_event_dh_event(struct wpa_driver_nl80211_data *drv,
 	wpa_supplicant_event(bss->ctx, EVENT_UPDATE_DH, &data);
 }
 
+#define KHZ_TO_MHZ(freq) ((freq) / 1000)
 
 static void send_scan_event(struct wpa_driver_nl80211_data *drv, int aborted,
 			    struct nlattr *tb[], int external_scan)
@@ -1330,7 +1340,32 @@ static void send_scan_event(struct wpa_driver_nl80211_data *drv, int aborted,
 				break;
 		}
 	}
-	if (tb[NL80211_ATTR_SCAN_FREQUENCIES]) {
+	
+	if (tb[NL80211_ATTR_SCAN_FREQ_KHZ]) {
+		char msg[300], *pos, *end;
+		int res;
+
+		pos = msg;
+		end = pos + sizeof(msg);
+		*pos = '\0';
+
+		nla_for_each_nested(nl, tb[NL80211_ATTR_SCAN_FREQ_KHZ], rem)
+		{
+			freqs[num_freqs] = nla_get_u32(nl);
+            
+			res = os_snprintf(pos, end - pos, " %d",
+					  freqs[num_freqs]);
+			if (!os_snprintf_error(end - pos, res))
+				pos += res;
+			num_freqs++;
+			if (num_freqs == MAX_REPORT_FREQS - 1)
+				break;
+		}
+		info->freqs = freqs;
+		info->num_freqs = num_freqs;
+		wpa_printf(MSG_DEBUG, "nl80211: Scan included frequencies KHz:%s",
+			   msg);
+	} else if (tb[NL80211_ATTR_SCAN_FREQUENCIES]) {
 		char msg[300], *pos, *end;
 		int res;
 
@@ -1341,6 +1376,7 @@ static void send_scan_event(struct wpa_driver_nl80211_data *drv, int aborted,
 		nla_for_each_nested(nl, tb[NL80211_ATTR_SCAN_FREQUENCIES], rem)
 		{
 			freqs[num_freqs] = nla_get_u32(nl);
+            
 			res = os_snprintf(pos, end - pos, " %d",
 					  freqs[num_freqs]);
 			if (!os_snprintf_error(end - pos, res))
@@ -2739,6 +2775,21 @@ static void nl80211_sta_opmode_change_event(struct wpa_driver_nl80211_data *drv,
 		case NL80211_CHAN_WIDTH_20_NOHT:
 			ed.sta_opmode.chan_width = CHAN_WIDTH_20_NOHT;
 			break;
+		case NL80211_CHAN_WIDTH_1:
+			ed.sta_opmode.chan_width = CHAN_WIDTH_1;
+            break;
+		case NL80211_CHAN_WIDTH_2:
+			ed.sta_opmode.chan_width = CHAN_WIDTH_2;
+            break;
+		case NL80211_CHAN_WIDTH_4:
+			ed.sta_opmode.chan_width = CHAN_WIDTH_4;
+            break;
+		case NL80211_CHAN_WIDTH_8:
+			ed.sta_opmode.chan_width = CHAN_WIDTH_8;
+            break;
+		case NL80211_CHAN_WIDTH_16:
+			ed.sta_opmode.chan_width = CHAN_WIDTH_16;
+            break;
 		case NL80211_CHAN_WIDTH_20:
 			ed.sta_opmode.chan_width = CHAN_WIDTH_20;
 			break;
@@ -2943,7 +2994,9 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 	case NL80211_CMD_UNPROT_DISASSOCIATE:
 		mlme_event(bss, cmd, tb[NL80211_ATTR_FRAME],
 			   tb[NL80211_ATTR_MAC], tb[NL80211_ATTR_TIMED_OUT],
-			   tb[NL80211_ATTR_WIPHY_FREQ], tb[NL80211_ATTR_ACK],
+			   tb[NL80211_ATTR_WIPHY_FREQ], 
+			   tb[NL80211_ATTR_WIPHY_FREQ_OFFSET],
+			   tb[NL80211_ATTR_ACK],
 			   tb[NL80211_ATTR_COOKIE],
 			   tb[NL80211_ATTR_RX_SIGNAL_DBM],
 			   tb[NL80211_ATTR_STA_WME],
@@ -2969,6 +3022,7 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 		mlme_event_ch_switch(drv,
 				     tb[NL80211_ATTR_IFINDEX],
 				     tb[NL80211_ATTR_WIPHY_FREQ],
+				     tb[NL80211_ATTR_WIPHY_FREQ_OFFSET],
 				     tb[NL80211_ATTR_WIPHY_CHANNEL_TYPE],
 				     tb[NL80211_ATTR_CHANNEL_WIDTH],
 				     tb[NL80211_ATTR_CENTER_FREQ1],
@@ -2979,6 +3033,7 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 		mlme_event_ch_switch(drv,
 				     tb[NL80211_ATTR_IFINDEX],
 				     tb[NL80211_ATTR_WIPHY_FREQ],
+				     tb[NL80211_ATTR_WIPHY_FREQ_OFFSET],
 				     tb[NL80211_ATTR_WIPHY_CHANNEL_TYPE],
 				     tb[NL80211_ATTR_CHANNEL_WIDTH],
 				     tb[NL80211_ATTR_CENTER_FREQ1],
@@ -3146,7 +3201,9 @@ int process_bss_event(struct nl_msg *msg, void *arg)
 	case NL80211_CMD_FRAME_TX_STATUS:
 		mlme_event(bss, gnlh->cmd, tb[NL80211_ATTR_FRAME],
 			   tb[NL80211_ATTR_MAC], tb[NL80211_ATTR_TIMED_OUT],
-			   tb[NL80211_ATTR_WIPHY_FREQ], tb[NL80211_ATTR_ACK],
+			   tb[NL80211_ATTR_WIPHY_FREQ],
+			   tb[NL80211_ATTR_WIPHY_FREQ_OFFSET],
+			   tb[NL80211_ATTR_ACK],
 			   tb[NL80211_ATTR_COOKIE],
 			   tb[NL80211_ATTR_RX_SIGNAL_DBM],
 			   tb[NL80211_ATTR_STA_WME], NULL);

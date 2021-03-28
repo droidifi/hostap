@@ -152,6 +152,7 @@ int hostapd_prepare_rates(struct hostapd_iface *iface,
 	int basic_rates_a[] = { 60, 120, 240, -1 };
 	int basic_rates_b[] = { 10, 20, -1 };
 	int basic_rates_g[] = { 10, 20, 55, 110, -1 };
+    int basic_rates_ah[] = { 10, 20, 40,  80, 160 -1 };
 	int *basic_rates;
 
 	if (iface->conf->basic_rates)
@@ -165,6 +166,9 @@ int hostapd_prepare_rates(struct hostapd_iface *iface,
 		break;
 	case HOSTAPD_MODE_IEEE80211G:
 		basic_rates = basic_rates_g;
+		break;
+    case HOSTAPD_MODE_IEEE80211AH:
+        basic_rates = basic_rates_ah;
 		break;
 	case HOSTAPD_MODE_IEEE80211AD:
 		return 0; /* No basic rates for 11ad */
@@ -397,6 +401,7 @@ static void ieee80211n_scan_channels_2g4(struct hostapd_iface *iface,
 		sec_freq = pri_freq + 20;
 	else
 		sec_freq = pri_freq - 20;
+    
 	/*
 	 * Note: Need to find the PRI channel also in cases where the affected
 	 * channel is the SEC channel of a 40 MHz BSS, so need to include the
@@ -409,6 +414,7 @@ static void ieee80211n_scan_channels_2g4(struct hostapd_iface *iface,
 
 	mode = iface->current_mode;
 	params->freqs = os_calloc(mode->num_channels + 1, sizeof(int));
+    
 	if (params->freqs == NULL)
 		return;
 	pos = 0;
@@ -1148,6 +1154,8 @@ const char * hostapd_hw_mode_txt(int mode)
 		return "IEEE 802.11g";
 	case HOSTAPD_MODE_IEEE80211AD:
 		return "IEEE 802.11ad";
+	case HOSTAPD_MODE_IEEE80211AH:
+		return "IEEE 802.11ah";        
 	default:
 		return "UNKNOWN";
 	}

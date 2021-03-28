@@ -2434,6 +2434,7 @@ static int wpa_ctrl_command_p2p_peer(struct wpa_ctrl *ctrl, const char *cmd,
 	if (os_memcmp(buf, "FAIL", 4) == 0)
 		return -1;
 
+	bssid = freq = level = flags = ssid = NULL;
 	pos = buf;
 	while (*pos != '\0' && *pos != '\n')
 		pos++;

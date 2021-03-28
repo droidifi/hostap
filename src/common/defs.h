@@ -355,6 +355,7 @@ enum hostapd_hw_mode {
 	HOSTAPD_MODE_IEEE80211G,
 	HOSTAPD_MODE_IEEE80211A,
 	HOSTAPD_MODE_IEEE80211AD,
+    HOSTAPD_MODE_IEEE80211AH,
 	HOSTAPD_MODE_IEEE80211ANY,
 	NUM_HOSTAPD_MODES
 };
@@ -420,6 +421,11 @@ enum eap_proxy_sim_state {
 /* enum chan_width - Channel width definitions */
 enum chan_width {
 	CHAN_WIDTH_20_NOHT,
+    CHAN_WIDTH_1,
+    CHAN_WIDTH_2,
+    CHAN_WIDTH_4,
+    CHAN_WIDTH_8,
+    CHAN_WIDTH_16,
 	CHAN_WIDTH_20,
 	CHAN_WIDTH_40,
 	CHAN_WIDTH_80,

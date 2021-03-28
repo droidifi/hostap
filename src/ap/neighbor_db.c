@@ -196,7 +196,8 @@ static enum nr_chan_width hostapd_get_nr_chan_width(struct hostapd_data *hapd,
 						    int ht, int vht, int he)
 {
 	u8 oper_chwidth = hostapd_get_oper_chwidth(hapd->iconf);
-
+	if (!ht && !vht && !he)
+		return NR_CHAN_WIDTH_20;
 	if (!ht && !vht && !he)
 		return NR_CHAN_WIDTH_20;
 	if (!hapd->iconf->secondary_channel)

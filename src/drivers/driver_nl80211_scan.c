@@ -174,6 +174,7 @@ void wpa_driver_nl80211_scan_timeout(void *eloop_ctx, void *timeout_ctx)
 	wpa_supplicant_event(timeout_ctx, EVENT_SCAN_RESULTS, NULL);
 }
 
+#define MHZ_TO_KHZ(freq) ((freq) * 1000)
 
 static struct nl_msg *
 nl80211_scan_common(struct i802_bss *bss, u8 cmd,
@@ -215,8 +216,24 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 			goto fail;
 	}
 
-	if (params->freqs) {
+	if (params->freqs &&
+        drv->capa.flags2 & WPA_DRIVER_FLAGS2_SCAN_FREQ_KHZ) {
 		struct nlattr *freqs;
+
+		freqs = nla_nest_start(msg, NL80211_ATTR_SCAN_FREQ_KHZ);
+		if (freqs == NULL)
+			goto fail;
+		for (i = 0; params->freqs[i]; i++) {
+			wpa_printf(MSG_MSGDUMP, "nl80211: Scan frequency %u "
+				   "KHz", params->freqs[i]);
+			if (nla_put_u32(msg, i + 1, params->freqs[i]))
+				goto fail;
+		}
+		nla_nest_end(msg, freqs);
+        scan_flags |= NL80211_SCAN_FLAG_FREQ_KHZ;
+	} else if (params->freqs) {
+		struct nlattr *freqs;
+        
 		freqs = nla_nest_start(msg, NL80211_ATTR_SCAN_FREQUENCIES);
 		if (freqs == NULL)
 			goto fail;
@@ -228,7 +245,7 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 		}
 		nla_nest_end(msg, freqs);
 	}
-
+	
 	os_free(drv->filter_ssids);
 	drv->filter_ssids = params->filter_ssids;
 	params->filter_ssids = NULL;
@@ -704,6 +721,7 @@ nl80211_parse_bss_info(struct wpa_driver_nl80211_data *drv,
 	static struct nla_policy bss_policy[NL80211_BSS_MAX + 1] = {
 		[NL80211_BSS_BSSID] = { .type = NLA_UNSPEC },
 		[NL80211_BSS_FREQUENCY] = { .type = NLA_U32 },
+		[NL80211_BSS_FREQUENCY_OFFSET] = { .type = NLA_U32 },        
 		[NL80211_BSS_TSF] = { .type = NLA_U64 },
 		[NL80211_BSS_BEACON_INTERVAL] = { .type = NLA_U16 },
 		[NL80211_BSS_CAPABILITY] = { .type = NLA_U16 },
@@ -756,6 +774,8 @@ nl80211_parse_bss_info(struct wpa_driver_nl80211_data *drv,
 			  ETH_ALEN);
 	if (bss[NL80211_BSS_FREQUENCY])
 		r->freq = nla_get_u32(bss[NL80211_BSS_FREQUENCY]);
+	if (bss[NL80211_BSS_FREQUENCY_OFFSET])
+		r->freq += nla_get_u32(bss[NL80211_BSS_FREQUENCY_OFFSET]);
 	if (bss[NL80211_BSS_BEACON_INTERVAL])
 		r->beacon_int = nla_get_u16(bss[NL80211_BSS_BEACON_INTERVAL]);
 	if (bss[NL80211_BSS_CAPABILITY])

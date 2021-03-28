@@ -899,6 +899,13 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 	if (sec_channel > 1 || sec_channel < -1)
 		return NUM_HOSTAPD_MODES;
 
+    /* 802.11ah */
+    if (freq <= 928) {
+            *channel = freq;
+            *op_class = 0;
+            return HOSTAPD_MODE_IEEE80211AH;
+    }
+    
 	if (freq >= 2412 && freq <= 2472) {
 		if ((freq - 2407) % 5)
 			return NUM_HOSTAPD_MODES;
@@ -1123,6 +1130,11 @@ int ieee80211_chaninfo_to_channel(unsigned int freq, enum chan_width chanwidth,
 
 	switch (chanwidth) {
 	case CHAN_WIDTH_UNKNOWN:
+    case CHAN_WIDTH_1:
+    case CHAN_WIDTH_2:
+    case CHAN_WIDTH_4:
+    case CHAN_WIDTH_8:
+    case CHAN_WIDTH_16:
 	case CHAN_WIDTH_20_NOHT:
 	case CHAN_WIDTH_20:
 	case CHAN_WIDTH_40:
@@ -1928,7 +1940,8 @@ static enum phy_type ieee80211_phy_type_by_freq(int freq)
 	hw_mode = ieee80211_freq_to_chan(freq, &channel);
 
 	switch (hw_mode) {
-	case HOSTAPD_MODE_IEEE80211A:
+    case HOSTAPD_MODE_IEEE80211A:
+	case HOSTAPD_MODE_IEEE80211AH:
 		return PHY_TYPE_OFDM;
 	case HOSTAPD_MODE_IEEE80211B:
 		return PHY_TYPE_HRDSSS;

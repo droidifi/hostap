@@ -60,12 +60,17 @@
 
 /* Allowed bandwidth mask */
 enum hostapd_chan_width_attr {
-	HOSTAPD_CHAN_WIDTH_10   = BIT(0),
-	HOSTAPD_CHAN_WIDTH_20   = BIT(1),
-	HOSTAPD_CHAN_WIDTH_40P  = BIT(2),
-	HOSTAPD_CHAN_WIDTH_40M  = BIT(3),
-	HOSTAPD_CHAN_WIDTH_80   = BIT(4),
-	HOSTAPD_CHAN_WIDTH_160  = BIT(5),
+    HOSTAPD_CHAN_WIDTH_1    = BIT(0),
+    HOSTAPD_CHAN_WIDTH_2    = BIT(1),
+    HOSTAPD_CHAN_WIDTH_4    = BIT(2),
+    HOSTAPD_CHAN_WIDTH_8    = BIT(3),
+    HOSTAPD_CHAN_WIDTH_16   = BIT(4),
+	HOSTAPD_CHAN_WIDTH_10   = BIT(5),
+	HOSTAPD_CHAN_WIDTH_20   = BIT(6),
+	HOSTAPD_CHAN_WIDTH_40P  = BIT(7),
+	HOSTAPD_CHAN_WIDTH_40M  = BIT(8),
+	HOSTAPD_CHAN_WIDTH_80   = BIT(9),
+	HOSTAPD_CHAN_WIDTH_160  = BIT(10),
 };
 
 /* Filter gratuitous ARP */
@@ -657,7 +662,7 @@ struct wpa_driver_scan_params {
  * Data for struct wpa_driver_ops::authenticate().
  */
 struct wpa_driver_auth_params {
-	int freq;
+	int freq;  
 	const u8 *bssid;
 	const u8 *ssid;
 	size_t ssid_len;
@@ -2019,6 +2024,7 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS2_OCV			0x0000000000000080ULL
 /** Driver expects user space implementation of SME in AP mode */
 #define WPA_DRIVER_FLAGS2_AP_SME		0x0000000000000100ULL
+#define WPA_DRIVER_FLAGS2_SCAN_FREQ_KHZ		0x0000000000000200ULL
 	u64 flags2;
 
 #define FULL_AP_CLIENT_STATE_SUPP(drv_flags) \
@@ -2327,6 +2333,7 @@ struct wpa_signal_info {
  */
 struct wpa_channel_info {
 	u32 frequency;
+    u32 offset;
 	enum chan_width chanwidth;
 	int sec_channel;
 	int center_frq1;
@@ -5267,7 +5274,7 @@ union wpa_event_data {
 		 * freq - Frequency of the operational channel in MHz
 		 */
 		unsigned int freq;
-
+     
 		/**
 		 * wmm_params - WMM parameters used in this association.
 		 */

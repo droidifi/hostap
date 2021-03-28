@@ -651,6 +651,10 @@ static void wiphy_info_ext_feature_flags(struct wiphy_info_data *info,
 		info->drv->multicast_registrations = 1;
 
 	if (ext_feature_isset(ext_features, len,
+			      NL80211_EXT_FEATURE_SCAN_FREQ_KHZ))
+		capa->flags2 |= WPA_DRIVER_FLAGS2_SCAN_FREQ_KHZ;
+
+	if (ext_feature_isset(ext_features, len,
 			      NL80211_EXT_FEATURE_FILS_DISCOVERY))
 		info->drv->fils_discovery = 1;
 
@@ -1549,6 +1553,10 @@ static void phy_info_freq(struct hostapd_hw_modes *mode,
 	chan->flag = 0;
 	chan->allowed_bw = ~0;
 	chan->dfs_cac_ms = 0;
+    
+	if (tb_freq[NL80211_FREQUENCY_ATTR_OFFSET])
+		chan->freq += nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_OFFSET]);
+
 	if (ieee80211_freq_to_chan(chan->freq, &channel) != NUM_HOSTAPD_MODES)
 		chan->chan = channel;
 	else
@@ -1984,7 +1992,10 @@ wpa_driver_nl80211_postprocess_modes(struct hostapd_hw_modes *modes,
 	for (m = 0; m < *num_modes; m++) {
 		if (!modes[m].num_channels)
 			continue;
-		if (modes[m].channels[0].freq < 2000) {
+		if (modes[m].channels[0].freq < 1000) {
+			modes[m].mode = HOSTAPD_MODE_IEEE80211AH;
+		}
+		else if (modes[m].channels[0].freq < 2000) {
 			modes[m].num_channels = 0;
 			continue;
 		} else if (modes[m].channels[0].freq < 4000) {
@@ -2127,8 +2138,14 @@ static void nl80211_reg_rule_max_eirp(u32 start, u32 end, u32 max_eirp,
 		for (c = 0; c < mode->num_channels; c++) {
 			struct hostapd_channel_data *chan = &mode->channels[c];
 			if ((u32) chan->freq - 10 >= start &&
-			    (u32) chan->freq + 10 <= end)
+			    (u32) chan->freq + 10 <= end && 
+                chan->freq >= 1000)
 				chan->max_tx_power = max_eirp;
+            // 802.11ah sub-1GHz
+            else if ((u32) chan->freq >= start &&
+			    (u32) chan->freq + 1 <= end &&
+			    chan->freq < 1000)
+                chan->max_tx_power = max_eirp;
 		}
 	}
 }
@@ -2409,6 +2426,8 @@ static const char * modestr(enum hostapd_hw_mode mode)
 		return "802.11a";
 	case HOSTAPD_MODE_IEEE80211AD:
 		return "802.11ad";
+	case HOSTAPD_MODE_IEEE80211AH:
+		return "802.11ah";
 	default:
 		return "?";
 	}

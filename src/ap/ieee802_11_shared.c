@@ -76,9 +76,9 @@ void ieee802_11_send_sa_query_req(struct hostapd_data *hapd,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (hapd->conf->oci_freq_override_saquery_req) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override OCI frequency %d -> %u MHz",
-				   ci.frequency,
-				   hapd->conf->oci_freq_override_saquery_req);
+				   "TEST: Override OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(hapd->conf->oci_freq_override_saquery_req));
 			ci.frequency =
 				hapd->conf->oci_freq_override_saquery_req;
 		}
@@ -165,9 +165,9 @@ static void ieee802_11_send_sa_query_resp(struct hostapd_data *hapd,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (hapd->conf->oci_freq_override_saquery_resp) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override OCI frequency %d -> %u MHz",
-				   ci.frequency,
-				   hapd->conf->oci_freq_override_saquery_resp);
+				   "TEST: Override OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(hapd->conf->oci_freq_override_saquery_resp));
 			ci.frequency =
 				hapd->conf->oci_freq_override_saquery_resp;
 		}

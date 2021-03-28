@@ -1314,7 +1314,7 @@ static int wpas_dbus_get_scan_channels(DBusMessage *message,
 			return -1;
 		}
 
-		freqs[freqs_num] = freq;
+		freqs[freqs_num] = KHZ(freq);
 
 		freqs_num++;
 		dbus_message_iter_next(&array_iter);
@@ -1555,16 +1555,16 @@ DBusMessage * wpas_dbus_handler_signal_poll(DBusMessage *message,
 	    !wpa_dbus_dict_append_int32(&iter_dict, "noise",
 					si.current_noise) ||
 	    !wpa_dbus_dict_append_uint32(&iter_dict, "frequency",
-					 si.frequency) ||
+					 MHZ(si.frequency)) ||
 	    (si.chanwidth != CHAN_WIDTH_UNKNOWN &&
 	     !wpa_dbus_dict_append_string(
 		     &iter_dict, "width",
 		     channel_width_to_string(si.chanwidth))) ||
 	    (si.center_frq1 > 0 && si.center_frq2 > 0 &&
 	     (!wpa_dbus_dict_append_int32(&iter_dict, "center-frq1",
-					  si.center_frq1) ||
+					  MHZ(si.center_frq1)) ||
 	      !wpa_dbus_dict_append_int32(&iter_dict, "center-frq2",
-					  si.center_frq2))) ||
+					  MHZ(si.center_frq2)))) ||
 	    (si.avg_signal &&
 	     !wpa_dbus_dict_append_int32(&iter_dict, "avg-rssi",
 					 si.avg_signal)) ||
@@ -2480,16 +2480,16 @@ wpas_dbus_handler_tdls_channel_switch(DBusMessage *message,
 			oper_class = entry.byte_value;
 		} else if (os_strcmp(entry.key, "Frequency") == 0 &&
 			   entry.type == DBUS_TYPE_UINT32) {
-			freq_params.freq = entry.uint32_value;
+			freq_params.freq = KHZ(entry.uint32_value);
 		} else if (os_strcmp(entry.key, "SecChannelOffset") == 0 &&
 			   entry.type == DBUS_TYPE_UINT32) {
 			freq_params.sec_channel_offset = entry.uint32_value;
 		} else if (os_strcmp(entry.key, "CenterFrequency1") == 0 &&
 			   entry.type == DBUS_TYPE_UINT32) {
-			freq_params.center_freq1 = entry.uint32_value;
+			freq_params.center_freq1 = KHZ(entry.uint32_value);
 		} else if (os_strcmp(entry.key, "CenterFrequency2") == 0 &&
 			   entry.type == DBUS_TYPE_UINT32) {
-			freq_params.center_freq2 = entry.uint32_value;
+			freq_params.center_freq2 = KHZ(entry.uint32_value);
 		} else if (os_strcmp(entry.key, "Bandwidth") == 0 &&
 			   entry.type == DBUS_TYPE_UINT32) {
 			freq_params.bandwidth = entry.uint32_value;
@@ -2529,10 +2529,11 @@ wpas_dbus_handler_tdls_channel_switch(DBusMessage *message,
 	}
 
 	wpa_printf(MSG_DEBUG, "dbus: TDLS_CHAN_SWITCH " MACSTR
-		   " OP CLASS %d FREQ %d CENTER1 %d CENTER2 %d BW %d SEC_OFFSET %d%s%s",
-		   MAC2STR(peer), oper_class, freq_params.freq,
-		   freq_params.center_freq1, freq_params.center_freq2,
-		   freq_params.bandwidth, freq_params.sec_channel_offset,
+		   " OP CLASS %d FREQ %g CENTER1 %g CENTER2 %g BW %d SEC_OFFSET %d%s%s",
+		   MAC2STR(peer), oper_class, PR_KHZ(freq_params.freq),
+		   PR_KHZ(freq_params.center_freq1),
+		   PR_KHZ(freq_params.center_freq2), freq_params.bandwidth,
+		   freq_params.sec_channel_offset,
 		   freq_params.ht_enabled ? " HT" : "",
 		   freq_params.vht_enabled ? " VHT" : "");
 
@@ -4734,7 +4735,7 @@ dbus_bool_t wpas_dbus_getter_bss_frequency(
 	if (!res)
 		return FALSE;
 
-	freq = (u16) res->freq;
+	freq = (u16) MHZ(res->freq);
 	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_UINT16,
 						&freq, error);
 }

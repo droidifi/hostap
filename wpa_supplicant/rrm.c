@@ -487,7 +487,7 @@ static int wpas_add_channel(u8 op_class, u8 chan, u8 num_primary_channels,
 		 * channels, so handle those as special cases here for now. */
 		if (freqs[i] < 0 &&
 		    (op_class == 128 || op_class == 129 || op_class == 130))
-			freqs[i] = 5000 + 5 * primary_chan;
+			freqs[i] = KHZ(5000 + 5 * primary_chan);
 		if (freqs[i] < 0) {
 			wpa_printf(MSG_DEBUG,
 				   "Beacon Report: Invalid channel %u",
@@ -754,8 +754,9 @@ int wpas_get_op_chan_phy(int freq, const u8 *ies, size_t ies_len,
 		}
 	}
 
-	if (ieee80211_freq_to_channel_ext(freq, sec_chan, vht, op_class,
-					  chan) == NUM_HOSTAPD_MODES) {
+	if (ieee80211_freq_to_channel_ext(freq, sec_chan, vht,
+					  op_class, chan) == NUM_HOSTAPD_MODES)
+	{
 		wpa_printf(MSG_DEBUG,
 			   "Cannot determine operating class and channel");
 		return -1;

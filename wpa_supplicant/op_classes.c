@@ -27,8 +27,8 @@ static enum chan_allowed allow_channel(struct hostapd_hw_modes *mode,
 	for (i = 0; i < mode->num_channels; i++) {
 		bool chan_is_6ghz;
 
-		chan_is_6ghz = mode->channels[i].freq >= 5935 &&
-			mode->channels[i].freq <= 7115;
+		chan_is_6ghz = mode->channels[i].freq >= KHZ(5935) &&
+			mode->channels[i].freq <= KHZ(7115);
 		if (is_6ghz == chan_is_6ghz && mode->channels[i].chan == chan)
 			break;
 	}
@@ -270,9 +270,9 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 
 			if (f == 0)
 				break; /* end of list */
-			if (f > 4000 && f < 6000)
+			if (f > KHZ(4000) && f < KHZ(6000))
 				freq5 = 1;
-			else if (f > 2400 && f < 2500)
+			else if (f > KHZ(2400) && f < KHZ(2500))
 				freq2 = 1;
 		}
 	} else {

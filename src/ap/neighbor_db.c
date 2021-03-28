@@ -279,7 +279,7 @@ void hostapd_neighbor_set_own_report(struct hostapd_data *hapd)
 					hapd->iconf);
 	} else if (ht) {
 		ieee80211_freq_to_chan(hapd->iface->freq +
-				       10 * hapd->iconf->secondary_channel,
+				       KHZ(10 * hapd->iconf->secondary_channel),
 				       &center_freq1_idx);
 	}
 

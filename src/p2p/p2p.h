@@ -91,7 +91,7 @@ struct p2p_go_neg_results {
 	int role_go;
 
 	/**
-	 * freq - Frequency of the group operational channel in MHz
+	 * freq - Frequency of the group operational channel in KHz
 	 */
 	int freq;
 

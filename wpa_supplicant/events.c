@@ -919,9 +919,10 @@ static int rate_match(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid,
 				 */
 				if (debug_print)
 					wpa_dbg(wpa_s, MSG_DEBUG,
-						"   hardware does not support required rate %d.%d Mbps (freq=%d mode==%d num_rates=%d)",
+						"   hardware does not support required rate %d.%d Mbps (freq=%g mode==%d num_rates=%d)",
 						r / 10, r % 10,
-						bss->freq, mode->mode, mode->num_rates);
+						PR_KHZ(bss->freq), mode->mode,
+						mode->num_rates);
 				return 0;
 			}
 		}
@@ -1496,11 +1497,11 @@ struct wpa_ssid * wpa_scan_res_match(struct wpa_supplicant *wpa_s,
 
 	if (debug_print) {
 		wpa_dbg(wpa_s, MSG_DEBUG, "%d: " MACSTR
-			" ssid='%s' wpa_ie_len=%u rsn_ie_len=%u caps=0x%x level=%d freq=%d %s%s%s",
+			" ssid='%s' wpa_ie_len=%u rsn_ie_len=%u caps=0x%x level=%d freq=%g %s%s%s",
 			i, MAC2STR(bss->bssid),
 			wpa_ssid_txt(bss->ssid, bss->ssid_len),
 			wpa_ie_len, rsn_ie_len, bss->caps, bss->level,
-			bss->freq,
+			PR_KHZ(bss->freq),
 			wpa_bss_get_vendor_ie(bss, WPS_IE_VENDOR_TYPE) ?
 			" wps" : "",
 			(wpa_bss_get_vendor_ie(bss, P2P_IE_VENDOR_TYPE) ||
@@ -1593,9 +1594,9 @@ wpa_supplicant_select_bss(struct wpa_supplicant *wpa_s,
 			if (ssid != wpa_s->current_ssid)
 				continue;
 			wpa_dbg(wpa_s, MSG_DEBUG, "%u: " MACSTR
-				" freq=%d level=%d snr=%d est_throughput=%u",
-				i, MAC2STR(bss->bssid), bss->freq, bss->level,
-				bss->snr, bss->est_throughput);
+				" freq=%g level=%d snr=%d est_throughput=%u",
+				i, MAC2STR(bss->bssid), PR_KHZ(bss->freq),
+				bss->level, bss->snr, bss->est_throughput);
 		}
 	}
 
@@ -1879,14 +1880,14 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 
 	wpa_dbg(wpa_s, MSG_DEBUG, "Considering within-ESS reassociation");
 	wpa_dbg(wpa_s, MSG_DEBUG, "Current BSS: " MACSTR
-		" freq=%d level=%d snr=%d est_throughput=%u",
+		" freq=%g level=%d snr=%d est_throughput=%u",
 		MAC2STR(current_bss->bssid),
-		current_bss->freq, current_bss->level,
+		PR_KHZ(current_bss->freq), current_bss->level,
 		current_bss->snr, current_bss->est_throughput);
 	wpa_dbg(wpa_s, MSG_DEBUG, "Selected BSS: " MACSTR
-		" freq=%d level=%d snr=%d est_throughput=%u",
-		MAC2STR(selected->bssid), selected->freq, selected->level,
-		selected->snr, selected->est_throughput);
+		" freq=%g level=%d snr=%d est_throughput=%u",
+		MAC2STR(selected->bssid), PR_KHZ(selected->freq),
+		selected->level, selected->snr, selected->est_throughput);
 
 	if (wpa_s->current_ssid->bssid_set &&
 	    os_memcmp(selected->bssid, wpa_s->current_ssid->bssid, ETH_ALEN) ==
@@ -1936,7 +1937,8 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 		return 1;
 	}
 
-	to_5ghz = selected->freq > 4000 && current_bss->freq < 4000;
+	to_5ghz = selected->freq > KHZ(4000) &&
+		  current_bss->freq < KHZ(4000);
 
 	if (cur_level < 0 && cur_level > selected->level + to_5ghz * 2 &&
 	    sel_est < cur_est * 1.2) {
@@ -2729,8 +2731,8 @@ static int wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
 			    data->assoc_info.beacon_ies,
 			    data->assoc_info.beacon_ies_len);
 	if (data->assoc_info.freq)
-		wpa_dbg(wpa_s, MSG_DEBUG, "freq=%u MHz",
-			data->assoc_info.freq);
+		wpa_dbg(wpa_s, MSG_DEBUG, "freq=%g MHz",
+			PR_KHZ(data->assoc_info.freq));
 
 	wpa_s->connection_set = 0;
 	if (data->assoc_info.req_ies && data->assoc_info.resp_ies) {
@@ -2978,8 +2980,9 @@ no_pfs:
 	if (wpa_s->assoc_freq && data->assoc_info.freq &&
 	    wpa_s->assoc_freq != data->assoc_info.freq) {
 		wpa_printf(MSG_DEBUG, "Operating frequency changed from "
-			   "%u to %u MHz",
-			   wpa_s->assoc_freq, data->assoc_info.freq);
+			   "%g to %g MHz",
+			   PR_KHZ(wpa_s->assoc_freq),
+			   PR_KHZ(data->assoc_info.freq));
 		wpa_supplicant_update_scan_results(wpa_s);
 	}
 
@@ -4153,8 +4156,8 @@ static void wpas_event_rx_mgmt_action(struct wpa_supplicant *wpa_s,
 	plen = len - IEEE80211_HDRLEN - 1;
 
 	wpa_dbg(wpa_s, MSG_DEBUG, "Received Action frame: SA=" MACSTR
-		" Category=%u DataLen=%d freq=%d MHz",
-		MAC2STR(mgmt->sa), category, (int) plen, freq);
+		" Category=%u DataLen=%d freq=%g MHz",
+		MAC2STR(mgmt->sa), category, (int) plen, PR_KHZ(freq));
 
 	if (category == WLAN_ACTION_WMM) {
 		wmm_ac_rx_action(wpa_s, mgmt->da, mgmt->sa, payload, plen);
@@ -4357,7 +4360,8 @@ static void wpas_event_dfs_cac_started(struct wpa_supplicant *wpa_s,
 	} else
 #endif /* NEED_AP_MLME && CONFIG_AP */
 	{
-		unsigned int cac_time = wpas_event_cac_ms(wpa_s, radar->freq);
+		unsigned int cac_time = wpas_event_cac_ms(wpa_s,
+						KHZ(radar->freq));
 
 		cac_time /= 1000; /* convert from ms to sec */
 		if (!cac_time)
@@ -4977,15 +4981,15 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			break;
 
 		wpa_msg(wpa_s, MSG_INFO,
-			"%sfreq=%d ht_enabled=%d ch_offset=%d ch_width=%s cf1=%d cf2=%d",
+			"%sfreq=%g ht_enabled=%d ch_offset=%d ch_width=%s cf1=%g cf2=%g",
 			event == EVENT_CH_SWITCH ? WPA_EVENT_CHANNEL_SWITCH :
 			WPA_EVENT_CHANNEL_SWITCH_STARTED,
-			data->ch_switch.freq,
+			PR_KHZ(data->ch_switch.freq),
 			data->ch_switch.ht_enabled,
 			data->ch_switch.ch_offset,
 			channel_width_to_string(data->ch_switch.ch_width),
-			data->ch_switch.cf1,
-			data->ch_switch.cf2);
+			PR_KHZ(data->ch_switch.cf1),
+			PR_KHZ(data->ch_switch.cf2));
 		if (event == EVENT_CH_SWITCH_STARTED)
 			break;
 
@@ -5072,8 +5076,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			if (hex) {
 				wpa_snprintf_hex(hex, hex_len,
 						 rx->frame, rx->frame_len);
-				wpa_msg(wpa_s, MSG_INFO, "MGMT-RX freq=%d datarate=%u ssi_signal=%d %s",
-					rx->freq, rx->datarate, rx->ssi_signal,
+				wpa_msg(wpa_s, MSG_INFO, "MGMT-RX freq=%g datarate=%u ssi_signal=%d %s",
+					PR_KHZ(rx->freq), rx->datarate, rx->ssi_signal,
 					hex);
 				os_free(hex);
 			}

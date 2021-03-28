@@ -12,6 +12,10 @@
 
 #include <utils/common.h>
 
+#define MHZ(f) ((f) / 1000)
+#define KHZ(f) ((f) * 1000)
+#define PR_KHZ(f) MHZ((float) f)
+
 /* IEEE 802.11 defines */
 
 #define WLAN_FC_PVER		0x0003

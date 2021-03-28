@@ -865,8 +865,9 @@ no_fils:
 	wpa_supplicant_cancel_scan(wpa_s);
 
 	wpa_msg(wpa_s, MSG_INFO, "SME: Trying to authenticate with " MACSTR
-		" (SSID='%s' freq=%d MHz)", MAC2STR(params.bssid),
-		wpa_ssid_txt(params.ssid, params.ssid_len), params.freq);
+		" (SSID='%s' freq=%g MHz)", MAC2STR(params.bssid),
+		wpa_ssid_txt(params.ssid, params.ssid_len),
+		PR_KHZ(params.freq));
 
 	eapol_sm_notify_portValid(wpa_s->eapol, false);
 	wpa_clear_keys(wpa_s, bss->bssid);
@@ -889,8 +890,8 @@ no_fils:
 		num = get_shared_radio_freqs(wpa_s, &freq, 1);
 		if (num > 0 && freq > 0 && freq != params.freq) {
 			wpa_printf(MSG_DEBUG,
-				   "Conflicting frequency found (%d != %d)",
-				   freq, params.freq);
+				   "Conflicting frequency found (%g != %g)",
+				   PR_KHZ(freq), PR_KHZ(params.freq));
 			if (wpas_p2p_handle_frequency_conflicts(wpa_s,
 								params.freq,
 								ssid) < 0) {
@@ -2058,9 +2059,9 @@ mscs_fail:
 		params.prev_bssid = wpa_s->sme.prev_bssid;
 
 	wpa_msg(wpa_s, MSG_INFO, "Trying to associate with " MACSTR
-		" (SSID='%s' freq=%d MHz)", MAC2STR(params.bssid),
+		" (SSID='%s' freq=%g MHz)", MAC2STR(params.bssid),
 		params.ssid ? wpa_ssid_txt(params.ssid, params.ssid_len) : "",
-		params.freq.freq);
+		PR_KHZ(params.freq.freq));
 
 	wpa_supplicant_set_state(wpa_s, WPA_ASSOCIATING);
 
@@ -2413,10 +2414,10 @@ int sme_proc_obss_scan(struct wpa_supplicant *wpa_s,
 
 	switch (wpa_s->sme.ht_sec_chan) {
 	case HT_SEC_CHAN_ABOVE:
-		sec_freq = pri_freq + 20;
+		sec_freq = pri_freq + KHZ(20);
 		break;
 	case HT_SEC_CHAN_BELOW:
-		sec_freq = pri_freq - 20;
+		sec_freq = pri_freq - KHZ(20);
 		break;
 	case HT_SEC_CHAN_UNKNOWN:
 	default:
@@ -2490,27 +2491,27 @@ static void wpa_obss_scan_freqs_list(struct wpa_supplicant *wpa_s,
 		}
 	}
 
-	start = wpa_s->assoc_freq - 10;
-	end = wpa_s->assoc_freq + 10;
+	start = wpa_s->assoc_freq - KHZ(10);
+	end = wpa_s->assoc_freq + KHZ(10);
 	switch (wpa_s->sme.ht_sec_chan) {
 	case HT_SEC_CHAN_UNKNOWN:
 		/* HT40+ possible on channels 1..9 */
-		if (wpa_s->assoc_freq <= 2452)
-			start -= 20;
+		if (wpa_s->assoc_freq <= KHZ(2452))
+			start -= KHZ(20);
 		/* HT40- possible on channels 5-13 */
-		if (wpa_s->assoc_freq >= 2432)
-			end += 20;
+		if (wpa_s->assoc_freq >= KHZ(2432))
+			end += KHZ(20);
 		break;
 	case HT_SEC_CHAN_ABOVE:
-		end += 20;
+		end += KHZ(20);
 		break;
 	case HT_SEC_CHAN_BELOW:
-		start -= 20;
+		start -= KHZ(20);
 		break;
 	}
 	wpa_printf(MSG_DEBUG,
-		   "OBSS: assoc_freq %d possible affected range %d-%d",
-		   wpa_s->assoc_freq, start, end);
+		   "OBSS: assoc_freq %g possible affected range %g-%g",
+		   PR_KHZ(wpa_s->assoc_freq), PR_KHZ(start), PR_KHZ(end));
 
 	params->freqs = os_calloc(mode->num_channels + 1, sizeof(int));
 	if (params->freqs == NULL)
@@ -2521,7 +2522,8 @@ static void wpa_obss_scan_freqs_list(struct wpa_supplicant *wpa_s,
 		if (mode->channels[i].flag & HOSTAPD_CHAN_DISABLED)
 			continue;
 		freq = mode->channels[i].freq;
-		if (freq - 10 >= end || freq + 10 <= start)
+		if (freq - KHZ(10) >= end ||
+		    freq + KHZ(10) <= start)
 			continue; /* not affected */
 		params->freqs[count++] = freq;
 	}
@@ -2592,7 +2594,8 @@ void sme_sched_obss_scan(struct wpa_supplicant *wpa_s, int enable)
 	    !(hw_mode->ht_capab & HT_CAP_INFO_SUPP_CHANNEL_WIDTH_SET))
 		return;
 
-	if (bss == NULL || bss->freq < 2400 || bss->freq > 2500)
+	if (bss == NULL || bss->freq < KHZ(2400) ||
+	    bss->freq > KHZ(2500))
 		return; /* Not associated on 2.4 GHz band */
 
 	/* Check whether AP supports HT40 */
@@ -2670,9 +2673,9 @@ static void sme_send_sa_query_req(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (wpa_s->oci_freq_override_saquery_req) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override SA Query Request OCI frequency %d -> %d MHz",
-				   ci.frequency,
-				   wpa_s->oci_freq_override_saquery_req);
+				   "TEST: Override SA Query Request OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(wpa_s->oci_freq_override_saquery_req));
 			ci.frequency = wpa_s->oci_freq_override_saquery_req;
 		}
 #endif /* CONFIG_TESTING_OPTIONS */
@@ -2834,9 +2837,9 @@ static void sme_process_sa_query_request(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (wpa_s->oci_freq_override_saquery_resp) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override SA Query Response OCI frequency %d -> %d MHz",
-				   ci.frequency,
-				   wpa_s->oci_freq_override_saquery_resp);
+				   "TEST: Override SA Query Response OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(wpa_s->oci_freq_override_saquery_resp));
 			ci.frequency = wpa_s->oci_freq_override_saquery_resp;
 		}
 #endif /* CONFIG_TESTING_OPTIONS */

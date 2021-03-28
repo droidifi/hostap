@@ -60,17 +60,17 @@
 
 /* Allowed bandwidth mask */
 enum hostapd_chan_width_attr {
-    HOSTAPD_CHAN_WIDTH_1    = BIT(0),
-    HOSTAPD_CHAN_WIDTH_2    = BIT(1),
-    HOSTAPD_CHAN_WIDTH_4    = BIT(2),
-    HOSTAPD_CHAN_WIDTH_8    = BIT(3),
-    HOSTAPD_CHAN_WIDTH_16   = BIT(4),
-	HOSTAPD_CHAN_WIDTH_10   = BIT(5),
-	HOSTAPD_CHAN_WIDTH_20   = BIT(6),
-	HOSTAPD_CHAN_WIDTH_40P  = BIT(7),
-	HOSTAPD_CHAN_WIDTH_40M  = BIT(8),
-	HOSTAPD_CHAN_WIDTH_80   = BIT(9),
-	HOSTAPD_CHAN_WIDTH_160  = BIT(10),
+	HOSTAPD_CHAN_WIDTH_10   = BIT(0),
+	HOSTAPD_CHAN_WIDTH_20   = BIT(1),
+	HOSTAPD_CHAN_WIDTH_40P  = BIT(2),
+	HOSTAPD_CHAN_WIDTH_40M  = BIT(3),
+	HOSTAPD_CHAN_WIDTH_80   = BIT(4),
+	HOSTAPD_CHAN_WIDTH_160  = BIT(5),
+    HOSTAPD_CHAN_WIDTH_1    = BIT(6),
+    HOSTAPD_CHAN_WIDTH_2    = BIT(7),
+    HOSTAPD_CHAN_WIDTH_4    = BIT(8),
+    HOSTAPD_CHAN_WIDTH_8    = BIT(9),
+    HOSTAPD_CHAN_WIDTH_16   = BIT(10),
 };
 
 /* Filter gratuitous ARP */
@@ -130,7 +130,7 @@ struct hostapd_channel_data {
 	short chan;
 
 	/**
-	 * freq - Frequency in MHz
+	 * freq - Frequency in KHz
 	 */
 	int freq;
 
@@ -328,7 +328,7 @@ struct hostapd_hw_modes {
  * struct wpa_scan_res - Scan result for an BSS/IBSS
  * @flags: information flags about the BSS/IBSS (WPA_SCAN_*)
  * @bssid: BSSID
- * @freq: frequency of the channel in MHz (e.g., 2412 = channel 1)
+ * @freq: frequency of the channel in KHz (e.g., 2412000 = channel 1)
  * @beacon_int: beacon interval in TUs (host byte order)
  * @caps: capability information field in host byte order
  * @qual: signal quality
@@ -452,7 +452,7 @@ struct wpa_driver_scan_params {
 	/**
 	 * freqs - Array of frequencies to scan or %NULL for all frequencies
 	 *
-	 * The frequency is set in MHz. The array is zero-terminated.
+	 * The frequency is set in kHz. The array is zero-terminated.
 	 */
 	int *freqs;
 
@@ -724,7 +724,7 @@ struct hostapd_freq_params {
 	enum hostapd_hw_mode mode;
 
 	/**
-	 * freq - Primary channel center frequency in MHz
+	 * freq - Primary channel center frequency in KHz
 	 */
 	int freq;
 
@@ -758,14 +758,14 @@ struct hostapd_freq_params {
 	int he_enabled;
 
 	/**
-	 * center_freq1 - Segment 0 center frequency in MHz
+	 * center_freq1 - Segment 0 center frequency in KHz
 	 *
 	 * Valid for both HT and VHT.
 	 */
 	int center_freq1;
 
 	/**
-	 * center_freq2 - Segment 1 center frequency in MHz
+	 * center_freq2 - Segment 1 center frequency in KHz
 	 *
 	 * Non-zero only for bandwidth 80 and an 80+80 channel
 	 */
@@ -2308,7 +2308,7 @@ enum smps_mode {
  * @center_frq2: center frequency for the second segment (if relevant)
  */
 struct wpa_signal_info {
-	u32 frequency;
+	int frequency;
 	int above_threshold;
 	int current_signal;
 	int avg_signal;
@@ -2332,7 +2332,7 @@ struct wpa_signal_info {
  *	derived from center_frq2 for convenience.
  */
 struct wpa_channel_info {
-	u32 frequency;
+	int frequency;
     u32 offset;
 	enum chan_width chanwidth;
 	int sec_channel;
@@ -2452,7 +2452,7 @@ struct drv_acs_params {
 	/* Configured ACS channel width */
 	u16 ch_width;
 
-	/* ACS frequency list info */
+	/* ACS frequency list (in KHz) */
 	const int *freq_list;
 
 	/* Indicates whether EDMG is enabled */
@@ -3462,7 +3462,7 @@ struct wpa_driver_ops {
 	/**
 	 * send_action - Transmit an Action frame
 	 * @priv: Private driver interface data
-	 * @freq: Frequency (in MHz) of the channel
+	 * @freq: Frequency (in KHz) of the channel
 	 * @wait: Time to wait off-channel for a response (in ms), or zero
 	 * @dst: Destination MAC address (Address 1)
 	 * @src: Source MAC address (Address 2)
@@ -3505,7 +3505,7 @@ struct wpa_driver_ops {
 	/**
 	 * remain_on_channel - Remain awake on a channel
 	 * @priv: Private driver interface data
-	 * @freq: Frequency (in MHz) of the channel
+	 * @freq: Frequency (in KHz) of the channel
 	 * @duration: Duration in milliseconds
 	 * Returns: 0 on success, -1 on failure
 	 *
@@ -5271,7 +5271,7 @@ union wpa_event_data {
 		size_t beacon_ies_len;
 
 		/**
-		 * freq - Frequency of the operational channel in MHz
+		 * freq - Frequency of the operational channel in KHz
 		 */
 		unsigned int freq;
      
@@ -5634,7 +5634,7 @@ union wpa_event_data {
 		void *drv_priv;
 
 		/**
-		 * freq - Frequency (in MHz) on which the frame was received
+		 * freq - Frequency (in KHz) on which the frame was received
 		 */
 		int freq;
 
@@ -5858,7 +5858,7 @@ union wpa_event_data {
 
 	/**
 	 * struct dfs_event - Data for radar detected events
-	 * @freq: Frequency of the channel in MHz
+	 * @freq: Frequency of the channel in KHz
 	 */
 	struct dfs_event {
 		int freq;

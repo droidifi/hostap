@@ -579,8 +579,8 @@ void p2p_process_prov_disc_req(struct p2p_data *p2p, const u8 *sa,
 		return;
 
 	p2p_dbg(p2p, "Received Provision Discovery Request from " MACSTR
-		" with config methods 0x%x (freq=%d)",
-		MAC2STR(sa), msg.wps_config_methods, rx_freq);
+		" with config methods 0x%x (freq=%g)",
+		MAC2STR(sa), msg.wps_config_methods, PR_KHZ(rx_freq));
 	group_mac = msg.intended_addr;
 
 	dev = p2p_get_device(p2p, sa);

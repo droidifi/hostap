@@ -238,9 +238,9 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 		if (freqs == NULL)
 			goto fail;
 		for (i = 0; params->freqs[i]; i++) {
-			wpa_printf(MSG_MSGDUMP, "nl80211: Scan frequency %u "
-				   "MHz", params->freqs[i]);
-			if (nla_put_u32(msg, i + 1, params->freqs[i]))
+			wpa_printf(MSG_MSGDUMP, "nl80211: Scan frequency %g "
+				   "MHz", PR_KHZ(params->freqs[i]));
+			if (nla_put_u32(msg, i + 1, MHZ(params->freqs[i])))
 				goto fail;
 		}
 		nla_nest_end(msg, freqs);
@@ -773,7 +773,7 @@ nl80211_parse_bss_info(struct wpa_driver_nl80211_data *drv,
 		os_memcpy(r->bssid, nla_data(bss[NL80211_BSS_BSSID]),
 			  ETH_ALEN);
 	if (bss[NL80211_BSS_FREQUENCY])
-		r->freq = nla_get_u32(bss[NL80211_BSS_FREQUENCY]);
+		r->freq = KHZ(nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
 	if (bss[NL80211_BSS_FREQUENCY_OFFSET])
 		r->freq += nla_get_u32(bss[NL80211_BSS_FREQUENCY_OFFSET]);
 	if (bss[NL80211_BSS_BEACON_INTERVAL])
@@ -1163,9 +1163,9 @@ int wpa_driver_nl80211_vendor_scan(struct i802_bss *bss,
 			goto fail;
 		for (i = 0; params->freqs[i]; i++) {
 			wpa_printf(MSG_MSGDUMP,
-				   "nl80211: Scan frequency %u MHz",
-				   params->freqs[i]);
-			if (nla_put_u32(msg, i + 1, params->freqs[i]))
+				   "nl80211: Scan frequency %g MHz",
+				   PR_KHZ(params->freqs[i]));
+			if (nla_put_u32(msg, i + 1, MHZ(params->freqs[i])))
 				goto fail;
 		}
 		nla_nest_end(msg, freqs);

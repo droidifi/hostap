@@ -60,9 +60,9 @@ static void gas_server_response_timeout(void *eloop_ctx, void *user_ctx)
 	struct gas_server_response *response = eloop_ctx;
 
 	wpa_printf(MSG_DEBUG, "GAS: Response @%p timeout for " MACSTR
-		   " (dialog_token=%u freq=%d frag_id=%u sent=%lu/%lu) - drop pending data",
+		   " (dialog_token=%u freq=%g frag_id=%u sent=%lu/%lu) - drop pending data",
 		   response, MAC2STR(response->dst), response->dialog_token,
-		   response->freq, response->frag_id,
+		   PR_KHZ(response->freq), response->frag_id,
 		   (unsigned long) response->offset,
 		   (unsigned long) (response->resp ?
 				    wpabuf_len(response->resp) : 0));
@@ -91,7 +91,7 @@ gas_server_send_resp(struct gas_server *gas, struct gas_server_handler *handler,
 		     const u8 *da, int freq, u8 dialog_token,
 		     struct wpabuf *query_resp, u16 comeback_delay)
 {
-	size_t max_len = (freq > 56160) ? 928 : 1400;
+	size_t max_len = (freq > KHZ(56160)) ? 928 : 1400;
 	size_t hdr_len = 24 + 2 + 5 + 3 + handler->adv_proto_id_len + 2;
 	size_t resp_frag_len;
 	struct wpabuf *resp;
@@ -257,7 +257,7 @@ gas_server_handle_rx_comeback_req(struct gas_server_response *response)
 {
 	struct gas_server_handler *handler = response->handler;
 	struct gas_server *gas = handler->gas;
-	size_t max_len = (response->freq > 56160) ? 928 : 1400;
+	size_t max_len = (response->freq > KHZ(56160)) ? 928 : 1400;
 	size_t hdr_len = 24 + 2 + 6 + 3 + handler->adv_proto_id_len + 2;
 	size_t remaining, resp_frag_len;
 	struct wpabuf *resp;
@@ -388,10 +388,10 @@ int gas_server_rx(struct gas_server *gas, const u8 *da, const u8 *sa,
 
 	wpa_printf(MSG_DEBUG, "GAS: Received GAS %s Request frame DA=" MACSTR
 		   " SA=" MACSTR " BSSID=" MACSTR
-		   " freq=%d dialog_token=%u len=%u",
+		   " freq=%g dialog_token=%u len=%u",
 		   action == WLAN_PA_GAS_INITIAL_REQ ? "Initial" : "Comeback",
-		   MAC2STR(da), MAC2STR(sa), MAC2STR(bssid), freq, dialog_token,
-		   (unsigned int) len);
+		   MAC2STR(da), MAC2STR(sa), MAC2STR(bssid), PR_KHZ(freq),
+		   dialog_token, (unsigned int) len);
 
 	if (action == WLAN_PA_GAS_INITIAL_REQ)
 		return gas_server_rx_initial_req(gas, da, sa, bssid,

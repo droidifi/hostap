@@ -162,7 +162,7 @@ DBusMessage * wpas_dbus_handler_p2p_find(DBusMessage *message,
 		} else if (os_strcmp(entry.key, "freq") == 0 &&
 			   (entry.type == DBUS_TYPE_INT32 ||
 			    entry.type == DBUS_TYPE_UINT32)) {
-			freq = entry.uint32_value;
+			freq = KHZ(entry.uint32_value);
 		} else
 			goto error_clear;
 		wpa_dbus_dict_entry_clear(&entry);
@@ -373,7 +373,7 @@ DBusMessage * wpas_dbus_handler_p2p_group_add(DBusMessage *message,
 			persistent_group = entry.bool_value;
 		} else if (os_strcmp(entry.key, "frequency") == 0 &&
 			   entry.type == DBUS_TYPE_INT32) {
-			freq = entry.int32_value;
+			freq = KHZ(entry.int32_value);
 			if (freq <= 0)
 				goto inv_args_clear;
 		} else if (os_strcmp(entry.key, "persistent_group_object") ==
@@ -608,7 +608,7 @@ DBusMessage * wpas_dbus_handler_p2p_connect(DBusMessage *message,
 			authorize_only = entry.bool_value;
 		} else if (os_strcmp(entry.key, "frequency") == 0 &&
 			   entry.type == DBUS_TYPE_INT32) {
-			freq = entry.int32_value;
+			freq = KHZ(entry.int32_value);
 			if (freq <= 0)
 				goto inv_args_clear;
 		} else if (os_strcmp(entry.key, "go_intent") == 0 &&
@@ -2435,11 +2435,11 @@ dbus_bool_t wpas_dbus_getter_p2p_group_frequency(
 	if (role == WPAS_P2P_ROLE_CLIENT) {
 		if (wpa_s->go_params == NULL)
 			return FALSE;
-		op_freq = wpa_s->go_params->freq;
+		op_freq = MHZ(wpa_s->go_params->freq);
 	} else {
 		if (wpa_s->ap_iface == NULL)
 			return FALSE;
-		op_freq = wpa_s->ap_iface->freq;
+		op_freq = MHZ(wpa_s->ap_iface->freq);
 	}
 
 	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_UINT16,
@@ -2948,7 +2948,7 @@ DBusMessage * wpas_dbus_handler_p2p_service_sd_res(
 			peer_object_path = os_strdup(entry.str_value);
 		} else if (os_strcmp(entry.key, "frequency") == 0 &&
 			   entry.type == DBUS_TYPE_INT32) {
-			freq = entry.uint32_value;
+			freq = KHZ(entry.uint32_value);
 		} else if (os_strcmp(entry.key, "dialog_token") == 0 &&
 			   (entry.type == DBUS_TYPE_UINT32 ||
 			    entry.type == DBUS_TYPE_INT32)) {

@@ -254,9 +254,9 @@ static int wpa_driver_privsep_authenticate(
 	size_t buflen;
 	u8 *pos;
 
-	wpa_printf(MSG_DEBUG, "%s: priv=%p freq=%d bssid=" MACSTR
+	wpa_printf(MSG_DEBUG, "%s: priv=%p freq=%g bssid=" MACSTR
 		   " auth_alg=%d local_state_change=%d p2p=%d",
-		   __func__, priv, params->freq, MAC2STR(params->bssid),
+		   __func__, priv, PR_KHZ(params->freq), MAC2STR(params->bssid),
 		   params->auth_alg, params->local_state_change, params->p2p);
 
 	buflen = sizeof(*data) + params->ie_len + params->auth_data_len;
@@ -303,11 +303,11 @@ static int wpa_driver_privsep_associate(
 	int res;
 	size_t buflen;
 
-	wpa_printf(MSG_DEBUG, "%s: priv=%p freq=%d pairwise_suite=%d "
+	wpa_printf(MSG_DEBUG, "%s: priv=%p freq=%g pairwise_suite=%d "
 		   "group_suite=%d key_mgmt_suite=%d auth_alg=%d mode=%d",
-		   __func__, priv, params->freq.freq, params->pairwise_suite,
-		   params->group_suite, params->key_mgmt_suite,
-		   params->auth_alg, params->mode);
+		   __func__, priv, PR_KHZ(params->freq.freq),
+		   params->pairwise_suite, params->group_suite,
+		   params->key_mgmt_suite, params->auth_alg, params->mode);
 
 	buflen = sizeof(*data) + params->wpa_ie_len;
 	data = os_zalloc(buflen);

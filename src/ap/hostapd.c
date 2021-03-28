@@ -1993,9 +1993,9 @@ static int hostapd_setup_interface_complete_sync(struct hostapd_iface *iface,
 #endif /* NEED_AP_MLME */
 
 		wpa_printf(MSG_DEBUG, "Mode: %s  Channel: %d  "
-			   "Frequency: %d MHz",
+			   "Frequency: %g MHz",
 			   hostapd_hw_mode_txt(iface->conf->hw_mode),
-			   iface->conf->channel, iface->freq);
+			   iface->conf->channel, PR_KHZ(iface->freq));
 
 #ifdef NEED_AP_MLME
 		/* Handle DFS only if it is not offloaded to the driver */
@@ -3460,10 +3460,8 @@ static int hostapd_change_config_freq(struct hostapd_data *hapd,
 	conf->channel = channel;
 	conf->ieee80211n = params->ht_enabled;
 	conf->secondary_channel = params->sec_channel_offset;
-	ieee80211_freq_to_chan(params->center_freq1,
-			       &seg0);
-	ieee80211_freq_to_chan(params->center_freq2,
-			       &seg1);
+	ieee80211_freq_to_chan(params->center_freq1, &seg0);
+	ieee80211_freq_to_chan(params->center_freq2, &seg1);
 	hostapd_set_oper_centr_freq_seg0_idx(conf, seg0);
 	hostapd_set_oper_centr_freq_seg1_idx(conf, seg1);
 
@@ -3507,8 +3505,8 @@ static int hostapd_fill_csa_settings(struct hostapd_data *hapd,
 		    &hapd->iface->cs_oper_class,
 		    &chan) == NUM_HOSTAPD_MODES) {
 		wpa_printf(MSG_DEBUG,
-			   "invalid frequency for channel switch (freq=%d, sec_channel_offset=%d, vht_enabled=%d, he_enabled=%d)",
-			   settings->freq_params.freq,
+			   "invalid frequency for channel switch (freq=%g, sec_channel_offset=%d, vht_enabled=%d, he_enabled=%d)",
+			   PR_KHZ(settings->freq_params.freq),
 			   settings->freq_params.sec_channel_offset,
 			   settings->freq_params.vht_enabled,
 			   settings->freq_params.he_enabled);
@@ -3624,9 +3622,9 @@ hostapd_switch_channel_fallback(struct hostapd_iface *iface,
 	wpa_printf(MSG_DEBUG, "Restarting all CSA-related BSSes");
 
 	if (freq_params->center_freq1)
-		seg0_idx = 36 + (freq_params->center_freq1 - 5180) / 5;
+		seg0_idx = 36 + (MHZ(freq_params->center_freq1) - 5180) / 5;
 	if (freq_params->center_freq2)
-		seg1_idx = 36 + (freq_params->center_freq2 - 5180) / 5;
+		seg1_idx = 36 + (MHZ(freq_params->center_freq2) - 5180) / 5;
 
 	switch (freq_params->bandwidth) {
 	case 0:

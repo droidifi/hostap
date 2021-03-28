@@ -778,8 +778,8 @@ char * dup_binstr(const void *src, size_t len)
 	return res;
 }
 
-
-int freq_range_list_parse(struct wpa_freq_range_list *res, const char *value)
+static int __int_range_list_parse(struct wpa_freq_range_list *res,
+				  const char *value, int is_freq)
 {
 	struct wpa_freq_range *freq = NULL, *n;
 	unsigned int count = 0;
@@ -802,12 +802,13 @@ int freq_range_list_parse(struct wpa_freq_range_list *res, const char *value)
 			return -1;
 		}
 		freq = n;
-		freq[count].min = atoi(pos);
+		freq[count].min = is_freq ? KHZ(atof(pos)) : atoi(pos);
 		pos2 = os_strchr(pos, '-');
 		pos3 = os_strchr(pos, ',');
 		if (pos2 && (!pos3 || pos2 < pos3)) {
 			pos2++;
-			freq[count].max = atoi(pos2);
+			freq[count].max = is_freq ? KHZ(atof(pos2)) :
+						    atoi(pos2);
 		} else
 			freq[count].max = freq[count].min;
 		pos = pos3;
@@ -821,6 +822,16 @@ int freq_range_list_parse(struct wpa_freq_range_list *res, const char *value)
 	res->num = count;
 
 	return 0;
+}
+
+int int_range_list_parse(struct wpa_freq_range_list *res, const char *value)
+{
+	return __int_range_list_parse(res, value, 0);
+}
+
+int freq_range_list_parse(struct wpa_freq_range_list *res, const char *value)
+{
+	return __int_range_list_parse(res, value, 1);
 }
 
 
@@ -862,12 +873,14 @@ char * freq_range_list_str(const struct wpa_freq_range_list *list)
 		struct wpa_freq_range *range = &list->range[i];
 
 		if (range->min == range->max)
-			res = os_snprintf(pos, end - pos, "%s%u",
-					  i == 0 ? "" : ",", range->min);
-		else
-			res = os_snprintf(pos, end - pos, "%s%u-%u",
+			res = os_snprintf(pos, end - pos, "%s%g",
 					  i == 0 ? "" : ",",
-					  range->min, range->max);
+					  PR_KHZ(range->min));
+		else
+			res = os_snprintf(pos, end - pos, "%s%g-%g",
+					  i == 0 ? "" : ",",
+					  PR_KHZ(range->min),
+					  PR_KHZ(range->max));
 		if (os_snprintf_error(end - pos, res)) {
 			os_free(buf);
 			return NULL;

@@ -157,8 +157,8 @@ static void gas_query_done(struct gas_query *gas,
 			   enum gas_query_result result)
 {
 	wpa_msg(gas->wpa_s, MSG_INFO, GAS_QUERY_DONE "addr=" MACSTR
-		" dialog_token=%u freq=%d status_code=%u result=%s",
-		MAC2STR(query->addr), query->dialog_token, query->freq,
+		" dialog_token=%u freq=%g status_code=%u result=%s",
+		MAC2STR(query->addr), query->dialog_token, PR_KHZ(query->freq),
 		query->status_code, gas_result_txt(result));
 	if (gas->current == query)
 		gas->current = NULL;
@@ -229,18 +229,19 @@ static void gas_query_tx_status(struct wpa_supplicant *wpa_s,
 	int dur;
 
 	if (gas->current == NULL) {
-		wpa_printf(MSG_DEBUG, "GAS: Unexpected TX status: freq=%u dst="
+		wpa_printf(MSG_DEBUG, "GAS: Unexpected TX status: freq=%g dst="
 			   MACSTR " result=%d - no query in progress",
-			   freq, MAC2STR(dst), result);
+			   PR_KHZ(freq), MAC2STR(dst), result);
 		return;
 	}
 
 	query = gas->current;
 
 	dur = ms_from_time(&query->last_oper);
-	wpa_printf(MSG_DEBUG, "GAS: TX status: freq=%u dst=" MACSTR
+	wpa_printf(MSG_DEBUG, "GAS: TX status: freq=%g dst=" MACSTR
 		   " result=%d query=%p dialog_token=%u dur=%d ms",
-		   freq, MAC2STR(dst), result, query, query->dialog_token, dur);
+		   PR_KHZ(freq), MAC2STR(dst), result, query,
+		   query->dialog_token, dur);
 	if (os_memcmp(dst, query->addr, ETH_ALEN) != 0) {
 		wpa_printf(MSG_DEBUG, "GAS: TX status for unexpected destination");
 		return;
@@ -293,9 +294,9 @@ static int gas_query_tx(struct gas_query *gas, struct gas_query_pending *query,
 	};
 
 	wpa_printf(MSG_DEBUG, "GAS: Send action frame to " MACSTR " len=%u "
-		   "freq=%d prot=%d using src addr " MACSTR,
+		   "freq=%g prot=%d using src addr " MACSTR,
 		   MAC2STR(query->addr), (unsigned int) wpabuf_len(req),
-		   query->freq, prot, MAC2STR(query->sa));
+		   PR_KHZ(query->freq), prot, MAC2STR(query->sa));
 	if (prot) {
 		u8 *categ = wpabuf_mhead_u8(req);
 		*categ = WLAN_ACTION_PROTECTED_DUAL;
@@ -819,7 +820,7 @@ static int gas_query_set_sa(struct gas_query *gas,
  * gas_query_req - Request a GAS query
  * @gas: GAS query data from gas_query_init()
  * @dst: Destination MAC address for the query
- * @freq: Frequency (in MHz) for the channel on which to send the query
+ * @freq: Frequency (in KHz) for the channel on which to send the query
  * @wildcard_bssid: Force use of wildcard BSSID value
  * @maintain_addr: Maintain own MAC address for exchange (i.e., ignore MAC
  *	address randomization rules)
@@ -869,8 +870,8 @@ int gas_query_req(struct gas_query *gas, const u8 *dst, int freq,
 	*(wpabuf_mhead_u8(req) + 2) = dialog_token;
 
 	wpa_msg(gas->wpa_s, MSG_INFO, GAS_QUERY_START "addr=" MACSTR
-		" dialog_token=%u freq=%d",
-		MAC2STR(query->addr), query->dialog_token, query->freq);
+		" dialog_token=%u freq=%g", MAC2STR(query->addr),
+		query->dialog_token, PR_KHZ(query->freq));
 
 	if (radio_add_work(gas->wpa_s, freq, "gas-query", 0, gas_query_start_cb,
 			   query) < 0) {

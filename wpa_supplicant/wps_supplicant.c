@@ -120,7 +120,7 @@ int wpas_wps_eapol_cb(struct wpa_supplicant *wpa_s)
 
 		wpa_printf(MSG_DEBUG, "WPS: Network configuration replaced - "
 			   "try to associate with the received credential "
-			   "(freq=%u)", freq);
+			   "(freq=%g)", PR_KHZ(freq));
 		wpa_s->own_disconnect_req = 1;
 		wpa_supplicant_deauthenticate(wpa_s,
 					      WLAN_REASON_DEAUTH_LEAVING);
@@ -922,8 +922,8 @@ static int wpa_supplicant_wps_rf_band(void *ctx)
 	if (!wpa_s->current_ssid || !wpa_s->assoc_freq)
 		return 0;
 
-	return (wpa_s->assoc_freq > 50000) ? WPS_RF_60GHZ :
-		(wpa_s->assoc_freq > 2484) ? WPS_RF_50GHZ : WPS_RF_24GHZ;
+	return (wpa_s->assoc_freq > KHZ(50000)) ? WPS_RF_60GHZ :
+		(wpa_s->assoc_freq > KHZ(2484)) ? WPS_RF_50GHZ : WPS_RF_24GHZ;
 }
 
 
@@ -1179,7 +1179,7 @@ int wpas_wps_start_pbc(struct wpa_supplicant *wpa_s, const u8 *bssid,
 			ssid->ssid_len = wpa_s->go_params->ssid_len;
 			os_memcpy(ssid->ssid, wpa_s->go_params->ssid,
 				  ssid->ssid_len);
-			if (wpa_s->go_params->freq > 56160) {
+			if (wpa_s->go_params->freq > KHZ(56160)) {
 				/* P2P in 60 GHz uses PBSS */
 				ssid->pbss = 1;
 			}
@@ -1267,7 +1267,7 @@ static int wpas_wps_start_dev_pw(struct wpa_supplicant *wpa_s,
 			ssid->ssid_len = wpa_s->go_params->ssid_len;
 			os_memcpy(ssid->ssid, wpa_s->go_params->ssid,
 				  ssid->ssid_len);
-			if (wpa_s->go_params->freq > 56160) {
+			if (wpa_s->go_params->freq > KHZ(56160)) {
 				/* P2P in 60 GHz uses PBSS */
 				ssid->pbss = 1;
 			}
@@ -2438,15 +2438,15 @@ static int wpas_wps_use_cred(struct wpa_supplicant *wpa_s,
 		int freq = 0;
 
 		if (chan >= 1 && chan <= 13)
-			freq = 2407 + 5 * chan;
+			freq = KHZ(2407 + 5 * chan);
 		else if (chan == 14)
-			freq = 2484;
+			freq = KHZ(2484);
 		else if (chan >= 30)
-			freq = 5000 + 5 * chan;
+			freq = KHZ(5000 + 5 * chan);
 
 		if (freq) {
-			wpa_printf(MSG_DEBUG, "WPS: Credential container indicated AP channel %u -> %u MHz",
-				   chan, freq);
+			wpa_printf(MSG_DEBUG, "WPS: Credential container indicated AP channel %u -> %g MHz",
+				   chan, PR_KHZ(freq));
 			wpa_s->after_wps = 5;
 			wpa_s->wps_freq = freq;
 		}
@@ -2717,24 +2717,24 @@ static int wpas_wps_nfc_rx_handover_sel(struct wpa_supplicant *wpa_s,
 
 		if (chan >= 1 && chan <= 13 &&
 		    (attr.rf_bands == NULL || *attr.rf_bands & WPS_RF_24GHZ))
-			freq = 2407 + 5 * chan;
+			freq = KHZ(2407 + 5 * chan);
 		else if (chan == 14 &&
 			 (attr.rf_bands == NULL ||
 			  *attr.rf_bands & WPS_RF_24GHZ))
-			freq = 2484;
+			freq = KHZ(2484);
 		else if (chan >= 30 &&
 			 (attr.rf_bands == NULL ||
 			  *attr.rf_bands & WPS_RF_50GHZ))
-			freq = 5000 + 5 * chan;
+			freq = KHZ(5000 + 5 * chan);
 		else if (chan >= 1 && chan <= 6 &&
 			 (attr.rf_bands == NULL ||
 			  *attr.rf_bands & WPS_RF_60GHZ))
-			freq = 56160 + 2160 * chan;
+			freq = KHZ(56160 + 2160 * chan);
 
 		if (freq) {
 			wpa_printf(MSG_DEBUG,
-				   "WPS: AP indicated channel %u -> %u MHz",
-				   chan, freq);
+				   "WPS: AP indicated channel %u -> %g MHz",
+				   chan, PR_KHZ(freq));
 		}
 	}
 

@@ -1595,7 +1595,7 @@ void wpas_dbus_signal_p2p_go_neg_resp(struct wpa_supplicant *wpa_s,
 						 res->role_go ? "GO" :
 						 "client") ||
 		    !wpa_dbus_dict_append_int32(&dict_iter, "frequency",
-						res->freq) ||
+						MHZ(res->freq)) ||
 		    !wpa_dbus_dict_append_byte_array(&dict_iter, "ssid",
 						     (const char *) res->ssid,
 						     res->ssid_len) ||
@@ -1616,7 +1616,7 @@ void wpas_dbus_signal_p2p_go_neg_resp(struct wpa_supplicant *wpa_s,
 
 		for (i = 0; i < P2P_MAX_CHANNELS; i++) {
 			if (res->freq_list[i]) {
-				freqs[i] = res->freq_list[i];
+				freqs[i] = MHZ(res->freq_list[i]);
 				freq_list_num++;
 			}
 		}
@@ -1868,7 +1868,7 @@ void wpas_dbus_signal_p2p_sd_request(struct wpa_supplicant *wpa_s,
 	if (!wpa_dbus_dict_open_write(&iter, &dict_iter) ||
 	    !wpa_dbus_dict_append_object_path(&dict_iter, "peer_object",
 					      path) ||
-	    !wpa_dbus_dict_append_int32(&dict_iter, "frequency", freq) ||
+	    !wpa_dbus_dict_append_int32(&dict_iter, "frequency", MHZ(freq)) ||
 	    !wpa_dbus_dict_append_int32(&dict_iter, "dialog_token",
 					dialog_token) ||
 	    !wpa_dbus_dict_append_uint16(&dict_iter, "update_indicator",
@@ -2174,7 +2174,7 @@ void wpas_dbus_signal_p2p_invitation_received(struct wpa_supplicant *wpa_s,
 					      ETH_ALEN)) ||
 	    (id &&
 	     !wpa_dbus_dict_append_int32(&dict_iter, "persistent_id", id)) ||
-	    !wpa_dbus_dict_append_int32(&dict_iter, "op_freq", op_freq) ||
+	    !wpa_dbus_dict_append_int32(&dict_iter, "op_freq", MHZ(op_freq)) ||
 	    !wpa_dbus_dict_close_write(&iter, &dict_iter)) {
 		dbus_message_unref(msg);
 		return;

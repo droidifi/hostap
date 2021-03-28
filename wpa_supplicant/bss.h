@@ -94,7 +94,7 @@ struct wpa_bss {
 	u8 ssid[SSID_MAX_LEN];
 	/** Length of SSID */
 	size_t ssid_len;
-	/** Frequency of the channel in MHz (e.g., 2412 = channel 1) */
+	/** Frequency of the channel in KHz (e.g., 2412000 = channel 1) */
 	int freq;
 	/** Beacon interval in TUs (host byte order) */
 	u16 beacon_int;
@@ -173,7 +173,7 @@ int wpa_bss_ext_capab(const struct wpa_bss *bss, unsigned int capab);
 
 static inline int bss_is_dmg(const struct wpa_bss *bss)
 {
-	return bss->freq > 45000;
+	return MHZ(bss->freq) > 45000;
 }
 
 /**

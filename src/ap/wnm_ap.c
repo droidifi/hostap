@@ -106,9 +106,9 @@ static int ieee802_11_send_wnmsleep_resp(struct hostapd_data *hapd,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (hapd->conf->oci_freq_override_wnm_sleep) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override OCI frequency %d -> %u MHz",
-				   ci.frequency,
-				   hapd->conf->oci_freq_override_wnm_sleep);
+				   "TEST: Override OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(hapd->conf->oci_freq_override_wnm_sleep));
 			ci.frequency = hapd->conf->oci_freq_override_wnm_sleep;
 		}
 #endif /* CONFIG_TESTING_OPTIONS */

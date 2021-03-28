@@ -151,7 +151,7 @@ static void * eap_pwd_init(struct eap_sm *sm)
 				os_memcpy(copy, pos, end - pos);
 				pos = copy;
 			}
-			res = freq_range_list_parse(&data->allowed_groups, pos);
+			res = int_range_list_parse(&data->allowed_groups, pos);
 			os_free(copy);
 			if (res)
 				goto fail;

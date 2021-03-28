@@ -876,7 +876,7 @@ static struct wpa_scan_results * wpa_driver_ndis_get_scan_results(void *priv)
 
 		os_memcpy(r->bssid, bss->MacAddress, ETH_ALEN);
 		r->level = (int) bss->Rssi;
-		r->freq = bss->Configuration.DSConfig / 1000;
+		r->freq = KHZ(bss->Configuration.DSConfig / 1000);
 		fixed = (NDIS_802_11_FIXED_IEs *) bss->IEs;
 		r->beacon_int = WPA_GET_LE16((u8 *) &fixed->BeaconInterval);
 		r->caps = WPA_GET_LE16((u8 *) &fixed->Capabilities);

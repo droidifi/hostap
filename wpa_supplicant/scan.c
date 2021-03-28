@@ -402,8 +402,8 @@ static void wpa_supplicant_optimize_freqs(
 		if (wpa_s->p2p_in_provisioning < 5 &&
 		    wpa_s->go_params->freq > 0) {
 			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Scan only GO "
-				"preferred frequency %d MHz",
-				wpa_s->go_params->freq);
+				"preferred frequency %g MHz",
+				PR_KHZ(wpa_s->go_params->freq));
 			params->freqs = os_calloc(2, sizeof(int));
 			if (params->freqs)
 				params->freqs[0] = wpa_s->go_params->freq;
@@ -426,8 +426,8 @@ static void wpa_supplicant_optimize_freqs(
 		 */
 		if (wpa_s->p2p_in_invitation < 5 &&
 		    wpa_s->p2p_invite_go_freq > 0) {
-			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Scan only GO preferred frequency %d MHz during invitation",
-				wpa_s->p2p_invite_go_freq);
+			wpa_dbg(wpa_s, MSG_DEBUG, "P2P: Scan only GO preferred frequency %g MHz during invitation",
+				PR_KHZ(wpa_s->p2p_invite_go_freq));
 			params->freqs = os_calloc(2, sizeof(int));
 			if (params->freqs)
 				params->freqs[0] = wpa_s->p2p_invite_go_freq;
@@ -452,8 +452,9 @@ static void wpa_supplicant_optimize_freqs(
 		 * Optimize post-provisioning scan based on channel used
 		 * during provisioning.
 		 */
-		wpa_dbg(wpa_s, MSG_DEBUG, "WPS: Scan only frequency %u MHz "
-			"that was used during provisioning", wpa_s->wps_freq);
+		wpa_dbg(wpa_s, MSG_DEBUG, "WPS: Scan only frequency %g MHz "
+			"that was used during provisioning",
+			PR_KHZ(wpa_s->wps_freq));
 		params->freqs = os_calloc(2, sizeof(int));
 		if (params->freqs)
 			params->freqs[0] = wpa_s->wps_freq;
@@ -464,8 +465,8 @@ static void wpa_supplicant_optimize_freqs(
 	if (params->freqs == NULL && wpa_s->known_wps_freq && wpa_s->wps_freq)
 	{
 		/* Optimize provisioning scan based on already known channel */
-		wpa_dbg(wpa_s, MSG_DEBUG, "WPS: Scan only frequency %u MHz",
-			wpa_s->wps_freq);
+		wpa_dbg(wpa_s, MSG_DEBUG, "WPS: Scan only frequency %g MHz",
+			PR_KHZ(wpa_s->wps_freq));
 		params->freqs = os_calloc(2, sizeof(int));
 		if (params->freqs)
 			params->freqs[0] = wpa_s->wps_freq;
@@ -2125,17 +2126,17 @@ static void dump_scan_res(struct wpa_scan_results *scan_res)
 		if (r->flags & WPA_SCAN_LEVEL_DBM) {
 			int noise_valid = !(r->flags & WPA_SCAN_NOISE_INVALID);
 
-			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%d qual=%d "
+			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%g qual=%d "
 				   "noise=%d%s level=%d snr=%d%s flags=0x%x age=%u est=%u",
-				   MAC2STR(r->bssid), r->freq, r->qual,
+				   MAC2STR(r->bssid), PR_KHZ(r->freq), r->qual,
 				   r->noise, noise_valid ? "" : "~", r->level,
 				   r->snr, r->snr >= GREAT_SNR ? "*" : "",
 				   r->flags,
 				   r->age, r->est_throughput);
 		} else {
-			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%d qual=%d "
+			wpa_printf(MSG_EXCESSIVE, MACSTR " freq=%g qual=%d "
 				   "noise=%d level=%d flags=0x%x age=%u est=%u",
-				   MAC2STR(r->bssid), r->freq, r->qual,
+				   MAC2STR(r->bssid), PR_KHZ(r->freq), r->qual,
 				   r->noise, r->level, r->flags, r->age,
 				   r->est_throughput);
 		}

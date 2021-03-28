@@ -1700,13 +1700,13 @@ def test_wpas_ctrl_oom(dev):
 def _test_wpas_ctrl_oom(dev):
     dev[0].request('VENDOR_ELEM_ADD 2 000100')
     tests = [('DRIVER_EVENT AVOID_FREQUENCIES 2412', 'FAIL',
-              1, 'freq_range_list_parse'),
+              1, '__int_range_list_parse'),
              ('P2P_SET disallow_freq 2412', 'FAIL',
-              1, 'freq_range_list_parse'),
+              1, '__int_range_list_parse'),
              ('SCAN freq=2412', 'FAIL',
-              1, 'freq_range_list_parse'),
+              1, '__int_range_list_parse'),
              ('INTERWORKING_SELECT freq=2412', 'FAIL',
-              1, 'freq_range_list_parse'),
+              1, '__int_range_list_parse'),
              ('SCAN ssid 112233', 'FAIL',
               1, 'wpas_ctrl_scan'),
              ('MGMT_TX 00:00:00:00:00:00 00:00:00:00:00:00 action=00', 'FAIL',

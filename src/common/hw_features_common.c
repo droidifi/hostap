@@ -135,8 +135,9 @@ int allowed_ht40_channel_pair(enum hostapd_hw_mode mode,
 	}
 
 	wpa_printf(MSG_DEBUG,
-		   "HT40: control channel: %d (%d MHz), secondary channel: %d (%d MHz)",
-		   pri_chan, p_chan->freq, sec_chan, s_chan->freq);
+		   "HT40: control channel: %d (%g MHz), secondary channel: %d (%g MHz)",
+		   pri_chan, PR_KHZ(p_chan->freq), sec_chan,
+		   PR_KHZ(s_chan->freq));
 
 	/* Verify that HT40 secondary channel is an allowed 20 MHz
 	 * channel */
@@ -276,7 +277,8 @@ static int check_20mhz_bss(struct wpa_scan_res *bss, int pri_freq, int start,
 	ieee802_11_parse_elems((u8 *) (bss + 1), bss->ie_len, &elems, 0);
 	if (!elems.ht_capabilities) {
 		wpa_printf(MSG_DEBUG, "Found overlapping legacy BSS: "
-			   MACSTR " freq=%d", MAC2STR(bss->bssid), bss->freq);
+			   MACSTR " freq=%g", MAC2STR(bss->bssid),
+			   PR_KHZ(bss->freq));
 		return 1;
 	}
 
@@ -286,7 +288,8 @@ static int check_20mhz_bss(struct wpa_scan_res *bss, int pri_freq, int start,
 			return 0;
 
 		wpa_printf(MSG_DEBUG, "Found overlapping 20 MHz HT BSS: "
-			   MACSTR " freq=%d", MAC2STR(bss->bssid), bss->freq);
+			   MACSTR " freq=%g", MAC2STR(bss->bssid),
+			   PR_KHZ(bss->freq));
 		return 1;
 	}
 	return 0;
@@ -310,8 +313,8 @@ int check_bss_coex_40mhz(struct wpa_scan_res *bss, int pri_freq, int sec_freq)
 	if (pri_freq == sec_freq)
 		return 1;
 
-	affected_start = (pri_freq + sec_freq) / 2 - 25;
-	affected_end = (pri_freq + sec_freq) / 2 + 25;
+	affected_start = (pri_freq + sec_freq) / 2 - KHZ(25);
+	affected_end = (pri_freq + sec_freq) / 2 + KHZ(25);
 
 	/* Check for overlapping 20 MHz BSS */
 	if (check_20mhz_bss(bss, pri_freq, affected_start, affected_end)) {
@@ -323,9 +326,9 @@ int check_bss_coex_40mhz(struct wpa_scan_res *bss, int pri_freq, int sec_freq)
 
 	if (sec_chan) {
 		if (sec_chan < pri_chan)
-			sec = pri - 20;
+			sec = pri - KHZ(20);
 		else
-			sec = pri + 20;
+			sec = pri + KHZ(20);
 	}
 
 	if ((pri < affected_start || pri > affected_end) &&
@@ -333,19 +336,19 @@ int check_bss_coex_40mhz(struct wpa_scan_res *bss, int pri_freq, int sec_freq)
 		return 0; /* not within affected channel range */
 
 	wpa_printf(MSG_DEBUG, "Neighboring BSS: " MACSTR
-		   " freq=%d pri=%d sec=%d",
-		   MAC2STR(bss->bssid), bss->freq, pri_chan, sec_chan);
+		   " freq=%g pri=%d sec=%d",
+		   MAC2STR(bss->bssid), PR_KHZ(bss->freq), pri_chan, sec_chan);
 
 	if (sec_chan) {
 		if (pri_freq != pri || sec_freq != sec) {
 			wpa_printf(MSG_DEBUG,
 				   "40 MHz pri/sec mismatch with BSS "
 				   MACSTR
-				   " <%d,%d> (chan=%d%c) vs. <%d,%d>",
+				   " <%g,%g> (chan=%d%c) vs. <%g,%g>",
 				   MAC2STR(bss->bssid),
-				   pri, sec, pri_chan,
+				   PR_KHZ(pri), PR_KHZ(sec), pri_chan,
 				   sec > pri ? '+' : '-',
-				   pri_freq, sec_freq);
+				   PR_KHZ(pri_freq), PR_KHZ(sec_freq));
 			return 1;
 		}
 	}
@@ -383,9 +386,9 @@ int check_40mhz_2g4(struct hostapd_hw_modes *mode,
 	pri_freq = hw_get_freq(mode, pri_chan);
 	sec_freq = hw_get_freq(mode, sec_chan);
 
-	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%d,%d] MHz",
-		   (pri_freq + sec_freq) / 2 - 25,
-		   (pri_freq + sec_freq) / 2 + 25);
+	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%g,%g] MHz",
+		   PR_KHZ((pri_freq + sec_freq) / 2 - KHZ(25)),
+		   PR_KHZ((pri_freq + sec_freq) / 2 + KHZ(25)));
 	for (i = 0; i < scan_res->num; i++) {
 		if (check_bss_coex_40mhz(scan_res->res[i], pri_freq, sec_freq))
 			return 0;
@@ -415,7 +418,7 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 	data->vht_enabled = vht_enabled;
 	data->he_enabled = he_enabled;
 	data->sec_channel_offset = sec_channel_offset;
-	data->center_freq1 = freq + sec_channel_offset * 10;
+	data->center_freq1 = freq + KHZ(sec_channel_offset * 10);
 	data->center_freq2 = 0;
 	data->bandwidth = sec_channel_offset ? 40 : 20;
 
@@ -553,8 +556,8 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 	case CHANWIDTH_USE_HT:
 		if (center_segment1 ||
 		    (center_segment0 != 0 &&
-		     5000 + center_segment0 * 5 != data->center_freq1 &&
-		     2407 + center_segment0 * 5 != data->center_freq1)) {
+		     KHZ(5000 + center_segment0 * 5) != data->center_freq1 &&
+		     KHZ(2407 + center_segment0 * 5) != data->center_freq1)) {
 			wpa_printf(MSG_ERROR,
 				   "20/40 MHz: center segment 0 (=%d) and center freq 1 (=%d) not in sync",
 				   center_segment0, data->center_freq1);
@@ -568,7 +571,7 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 				   "80+80 MHz: center segment 1 only 20 MHz apart");
 			return -1;
 		}
-		data->center_freq2 = 5000 + center_segment1 * 5;
+		data->center_freq2 = KHZ(5000 + center_segment1 * 5);
 		/* fall through */
 	case CHANWIDTH_80MHZ:
 		data->bandwidth = 80;
@@ -602,7 +605,7 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 				center_segment0 = 155;
 			else if (channel <= 177)
 				center_segment0 = 171;
-			data->center_freq1 = 5000 + center_segment0 * 5;
+			data->center_freq1 = KHZ(5000 + center_segment0 * 5);
 		} else {
 			/*
 			 * Note: HT/VHT config and params are coupled. Check if
@@ -613,7 +616,7 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 			    center_segment0 == channel + 2 ||
 			    center_segment0 == channel - 2 ||
 			    center_segment0 == channel - 6)
-				data->center_freq1 = 5000 + center_segment0 * 5;
+				data->center_freq1 = KHZ(5000 + center_segment0 * 5);
 			else {
 				wpa_printf(MSG_ERROR,
 					   "Wrong coupling between HT and VHT/HE channel setting");
@@ -645,7 +648,7 @@ int hostapd_set_freq_params(struct hostapd_freq_params *data,
 		    center_segment0 == channel - 6 ||
 		    center_segment0 == channel - 10 ||
 		    center_segment0 == channel - 14)
-			data->center_freq1 = 5000 + center_segment0 * 5;
+			data->center_freq1 = KHZ(5000 + center_segment0 * 5);
 		else {
 			wpa_printf(MSG_ERROR,
 				   "160 MHz: HT40 channel band is not in 160 MHz band");
@@ -823,5 +826,7 @@ int chan_bw_allowed(const struct hostapd_channel_data *chan, u32 bw,
 int chan_pri_allowed(const struct hostapd_channel_data *chan)
 {
 	return !(chan->flag & HOSTAPD_CHAN_DISABLED) &&
-		(chan->allowed_bw & HOSTAPD_CHAN_WIDTH_20);
+		(chan->allowed_bw & (HOSTAPD_CHAN_WIDTH_20 |
+				     HOSTAPD_CHAN_WIDTH_1 |
+				     HOSTAPD_CHAN_WIDTH_2));
 }

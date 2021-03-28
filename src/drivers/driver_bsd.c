@@ -1215,6 +1215,7 @@ wpa_driver_bsd_associate(void *priv, struct wpa_driver_associate_params *params)
 		, params->key_mgmt_suite
 	);
 
+	params->freq = MHZ(params->freq);
 	switch (params->mode) {
 	case IEEE80211_MODE_INFRA:
 		mode = 0 /* STA */;
@@ -1367,7 +1368,7 @@ wpa_driver_bsd_add_scan_entry(struct wpa_scan_results *res,
 	if (result == NULL)
 		return;
 	os_memcpy(result->bssid, sr->isr_bssid, ETH_ALEN);
-	result->freq = sr->isr_freq;
+	result->freq = KHZ(sr->isr_freq);
 	result->beacon_int = sr->isr_intval;
 	result->caps = sr->isr_capinfo;
 	result->qual = sr->isr_rssi;

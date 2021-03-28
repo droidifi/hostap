@@ -68,8 +68,8 @@ int p2p_channel_to_freq(int op_class, int channel)
  */
 int p2p_freq_to_channel(unsigned int freq, u8 *op_class, u8 *channel)
 {
-	if (ieee80211_freq_to_channel_ext(freq, 0, 0, op_class, channel) ==
-	    NUM_HOSTAPD_MODES)
+	if (ieee80211_freq_to_channel_ext(freq, 0, 0, op_class,
+					  channel) == NUM_HOSTAPD_MODES)
 		return -1;
 
 	return 0;
@@ -427,16 +427,16 @@ int p2p_channel_random_social(struct p2p_channels *chans, u8 *op_class,
 	 * here for social channel selection unless explicitly disallowed in the
 	 * disallow_list. */
 	if (p2p_channels_includes(chans, 81, 1) ||
-	    (freq_range_list_includes(avoid_list, 2412) &&
-	     !freq_range_list_includes(disallow_list, 2412)))
+	    (freq_range_list_includes(avoid_list, KHZ(2412)) &&
+	     !freq_range_list_includes(disallow_list, KHZ(2412))))
 		chan[num_channels++] = 1;
 	if (p2p_channels_includes(chans, 81, 6) ||
-	    (freq_range_list_includes(avoid_list, 2437) &&
-	     !freq_range_list_includes(disallow_list, 2437)))
+	    (freq_range_list_includes(avoid_list, KHZ(2437)) &&
+	     !freq_range_list_includes(disallow_list, KHZ(2437))))
 		chan[num_channels++] = 6;
 	if (p2p_channels_includes(chans, 81, 11) ||
-	    (freq_range_list_includes(avoid_list, 2462) &&
-	     !freq_range_list_includes(disallow_list, 2462)))
+	    (freq_range_list_includes(avoid_list, KHZ(2462)) &&
+	     !freq_range_list_includes(disallow_list, KHZ(2462))))
 		chan[num_channels++] = 11;
 
 	/* Try to find available social channels from 60 GHz */

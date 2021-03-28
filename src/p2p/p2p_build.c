@@ -138,8 +138,8 @@ void p2p_buf_add_pref_channel_list(struct wpabuf *buf,
 	for (i = 0; i < size; i++) {
 		if (p2p_freq_to_channel(preferred_freq_list[i], &op_class,
 					&op_channel) < 0) {
-			wpa_printf(MSG_DEBUG, "Unsupported frequency %u MHz",
-				   preferred_freq_list[i]);
+			wpa_printf(MSG_DEBUG, "Unsupported frequency %g MHz",
+				   PR_KHZ(preferred_freq_list[i]));
 			continue;
 		}
 		wpabuf_put_u8(buf, op_class);

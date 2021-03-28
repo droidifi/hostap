@@ -1434,7 +1434,8 @@ static void fetch_pending_big_events(struct atheros_driver_data *drv)
 			stype = WLAN_FC_GET_STYPE(fc);
 
 			wpa_printf(MSG_DEBUG, "athr: EV_RX_MGMT stype=%u "
-				"freq=%u len=%u", stype, freq, (int) data_len);
+				"freq=%u len=%u", stype, freq, (int)
+				data_len);
 
 			if (stype == WLAN_FC_STYPE_ACTION) {
 				os_memset(&event, 0, sizeof(event));
@@ -2072,6 +2073,7 @@ static int atheros_send_action(void *priv, unsigned int freq,
 	act = os_zalloc(sizeof(*act) + data_len);
 	if (act == NULL)
 		return -1;
+	freq = MHZ(freq);
 	act->freq = freq;
 	os_memcpy(act->dst_addr, dst, ETH_ALEN);
 	os_memcpy(act->src_addr, src, ETH_ALEN);

@@ -686,7 +686,7 @@ static int calculate_chan_offset(int width, int freq, int cf1, int cf2)
 
 
 static void mlme_event_ch_switch(struct wpa_driver_nl80211_data *drv,
-				 struct nlattr *ifindex, struct nlattr *freq,
+				 struct nlattr *ifindex, struct nlattr *freq, struct nlattr *freq_offset,
 				 struct nlattr *type, struct nlattr *bw,
 				 struct nlattr *cf1, struct nlattr *cf2,
 				 int finished)
@@ -741,15 +741,15 @@ static void mlme_event_ch_switch(struct wpa_driver_nl80211_data *drv,
 	}
 
 	os_memset(&data, 0, sizeof(data));
-	data.ch_switch.freq = nla_get_u32(freq);
+	data.ch_switch.freq = KHZ(nla_get_u32(freq)) + nla_get_u32(freq_offset);
 	data.ch_switch.ht_enabled = ht_enabled;
 	data.ch_switch.ch_offset = chan_offset;
 	if (bw)
 		data.ch_switch.ch_width = convert2width(nla_get_u32(bw));
 	if (cf1)
-		data.ch_switch.cf1 = nla_get_u32(cf1);
+		data.ch_switch.cf1 = KHZ(nla_get_u32(cf1));
 	if (cf2)
-		data.ch_switch.cf2 = nla_get_u32(cf2);
+		data.ch_switch.cf2 = KHZ(nla_get_u32(cf2));
 
 	if (finished)
 		bss->freq = data.ch_switch.freq;
@@ -809,13 +809,13 @@ static void mlme_event_mgmt(struct i802_bss *bss,
 	if (sig)
 		ssi_signal = (s32) nla_get_u32(sig);
 
-	event.rx_mgmt.freq = freq;
+	event.rx_mgmt.freq = KHZ(freq);
 	rx_freq = drv->last_mgmt_freq = event.rx_mgmt.freq;
 	wpa_printf(MSG_DEBUG,
 		   "nl80211: RX frame da=" MACSTR " sa=" MACSTR " bssid=" MACSTR
-		   " freq=%d ssi_signal=%d fc=0x%x seq_ctrl=0x%x stype=%u (%s) len=%u",
+		   " freq=%g ssi_signal=%d fc=0x%x seq_ctrl=0x%x stype=%u (%s) len=%u",
 		   MAC2STR(mgmt->da), MAC2STR(mgmt->sa), MAC2STR(mgmt->bssid),
-		   rx_freq, ssi_signal, fc,
+		   PR_KHZ(rx_freq), ssi_signal, fc,
 		   le_to_host16(mgmt->seq_ctrl), stype, fc2str(fc),
 		   (unsigned int) len);
 	event.rx_mgmt.frame = frame;
@@ -1220,8 +1220,8 @@ static void mlme_event_join_ibss(struct wpa_driver_nl80211_data *drv,
 
 	freq = nl80211_get_assoc_freq(drv);
 	if (freq) {
-		wpa_printf(MSG_DEBUG, "nl80211: IBSS on frequency %u MHz",
-			   freq);
+		wpa_printf(MSG_DEBUG, "nl80211: IBSS on frequency %g MHz",
+			   PR_KHZ(freq));
 		drv->first_bss->freq = freq;
 	}
 
@@ -1240,7 +1240,7 @@ static void mlme_event_remain_on_channel(struct wpa_driver_nl80211_data *drv,
 	u64 cookie;
 
 	if (tb[NL80211_ATTR_WIPHY_FREQ])
-		freq = nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]);
+		freq = KHZ(nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]));
 	else
 		freq = 0;
 
@@ -1260,8 +1260,8 @@ static void mlme_event_remain_on_channel(struct wpa_driver_nl80211_data *drv,
 		cookie = 0;
 
 	wpa_printf(MSG_DEBUG, "nl80211: Remain-on-channel event (cancel=%d "
-		   "freq=%u channel_type=%u duration=%u cookie=0x%llx (%s))",
-		   cancel_event, freq, chan_type, duration,
+		   "freq=%g channel_type=%u duration=%u cookie=0x%llx (%s))",
+		   cancel_event, PR_KHZ(freq), chan_type, duration,
 		   (long long unsigned int) cookie,
 		   cookie == drv->remain_on_chan_cookie ? "match" : "unknown");
 
@@ -1820,7 +1820,7 @@ static void nl80211_radar_event(struct wpa_driver_nl80211_data *drv,
 		return;
 
 	os_memset(&data, 0, sizeof(data));
-	data.dfs_event.freq = nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]);
+	data.dfs_event.freq = KHZ(nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]));
 	event_type = nla_get_u32(tb[NL80211_ATTR_RADAR_EVENT]);
 
 	/* Check HT params */
@@ -1849,14 +1849,16 @@ static void nl80211_radar_event(struct wpa_driver_nl80211_data *drv,
 			convert2width(nla_get_u32(
 					      tb[NL80211_ATTR_CHANNEL_WIDTH]));
 	if (tb[NL80211_ATTR_CENTER_FREQ1])
-		data.dfs_event.cf1 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]);
+		data.dfs_event.cf1 =
+			KHZ(nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]));
 	if (tb[NL80211_ATTR_CENTER_FREQ2])
-		data.dfs_event.cf2 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]);
+		data.dfs_event.cf2 =
+			KHZ(nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]));
 
-	wpa_printf(MSG_DEBUG, "nl80211: DFS event on freq %d MHz, ht: %d, offset: %d, width: %d, cf1: %dMHz, cf2: %dMHz",
-		   data.dfs_event.freq, data.dfs_event.ht_enabled,
+	wpa_printf(MSG_DEBUG, "nl80211: DFS event on freq %g MHz, ht: %d, offset: %d, width: %d, cf1: %gMHz, cf2: %gMHz",
+		   PR_KHZ(data.dfs_event.freq), data.dfs_event.ht_enabled,
 		   data.dfs_event.chan_offset, data.dfs_event.chan_width,
-		   data.dfs_event.cf1, data.dfs_event.cf2);
+		   PR_KHZ(data.dfs_event.cf1), PR_KHZ(data.dfs_event.cf2));
 
 	switch (event_type) {
 	case NL80211_RADAR_DETECTED:
@@ -1935,10 +1937,10 @@ static void qca_nl80211_avoid_freq(struct wpa_driver_nl80211_data *drv,
 	os_memset(&event, 0, sizeof(event));
 	for (i = 0; i < count; i++) {
 		unsigned int idx = event.freq_range.num;
-		range[idx].min = freq_range->range[i].start_freq;
-		range[idx].max = freq_range->range[i].end_freq;
-		wpa_printf(MSG_DEBUG, "nl80211: Avoid frequency range: %u-%u",
-			   range[idx].min, range[idx].max);
+		range[idx].min = KHZ(freq_range->range[i].start_freq);
+		range[idx].max = KHZ(freq_range->range[i].end_freq);
+		wpa_printf(MSG_DEBUG, "nl80211: Avoid frequency range: %g-%g",
+			   PR_KHZ(range[idx].min), PR_KHZ(range[idx].max));
 		if (range[idx].min > range[idx].max) {
 			wpa_printf(MSG_DEBUG, "nl80211: Ignore invalid frequency range");
 			continue;
@@ -2180,7 +2182,7 @@ static void qca_nl80211_dfs_offload_radar_event(
 	}
 
 	os_memset(&data, 0, sizeof(data));
-	data.dfs_event.freq = nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]);
+	data.dfs_event.freq = KHZ(nla_get_u32(tb[NL80211_ATTR_WIPHY_FREQ]));
 
 	wpa_printf(MSG_DEBUG, "nl80211: DFS event on freq %d MHz",
 		   data.dfs_event.freq);
@@ -2211,9 +2213,11 @@ static void qca_nl80211_dfs_offload_radar_event(
 			convert2width(nla_get_u32(
 					      tb[NL80211_ATTR_CHANNEL_WIDTH]));
 	if (tb[NL80211_ATTR_CENTER_FREQ1])
-		data.dfs_event.cf1 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]);
+		data.dfs_event.cf1 =
+			KHZ(nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ1]));
 	if (tb[NL80211_ATTR_CENTER_FREQ2])
-		data.dfs_event.cf2 = nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]);
+		data.dfs_event.cf2 =
+			KHZ(nla_get_u32(tb[NL80211_ATTR_CENTER_FREQ2]));
 
 	wpa_printf(MSG_DEBUG, "nl80211: DFS event on freq %d MHz, ht: %d, "
 		    "offset: %d, width: %d, cf1: %dMHz, cf2: %dMHz",
@@ -2319,7 +2323,7 @@ static void send_vendor_scan_event(struct wpa_driver_nl80211_data *drv,
 		nla_for_each_nested(nl,
 				    tb[QCA_WLAN_VENDOR_ATTR_SCAN_FREQUENCIES],
 				    rem) {
-			freqs[num_freqs] = nla_get_u32(nl);
+			freqs[num_freqs] = KHZ(nla_get_u32(nl));
 			res = os_snprintf(pos, end - pos, " %d",
 					  freqs[num_freqs]);
 			if (!os_snprintf_error(end - pos, res))
@@ -2664,14 +2668,14 @@ static void nl80211_dump_freq(const char *title, struct nlattr *nl_freq)
 		  nla_data(nl_freq), nla_len(nl_freq), freq_policy);
 
 	if (tb[NL80211_FREQUENCY_ATTR_FREQ])
-		freq = nla_get_u32(tb[NL80211_FREQUENCY_ATTR_FREQ]);
+		freq = KHZ(nla_get_u32(tb[NL80211_FREQUENCY_ATTR_FREQ]));
 	if (tb[NL80211_FREQUENCY_ATTR_MAX_TX_POWER])
 		max_tx_power =
 			nla_get_u32(tb[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]);
 
 	wpa_printf(MSG_DEBUG,
-		   "nl80211: Channel (%s): freq=%u max_tx_power=%u%s%s%s",
-		   title, freq, max_tx_power,
+		   "nl80211: Channel (%s): freq=%g max_tx_power=%u%s%s%s",
+		   title, PR_KHZ(freq), max_tx_power,
 		   tb[NL80211_FREQUENCY_ATTR_DISABLED] ? " disabled" : "",
 		   tb[NL80211_FREQUENCY_ATTR_NO_IR] ? " no-IR" : "",
 		   tb[NL80211_FREQUENCY_ATTR_RADAR] ? " radar" : "");

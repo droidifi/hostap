@@ -180,7 +180,7 @@ static int is_40_allowed(struct hostapd_iface *iface, int channel)
 {
 	int pri_freq, sec_freq;
 	int affected_start, affected_end;
-	int pri = 2407 + 5 * channel;
+	int pri = KHZ(2407 + 5 * channel);
 
 	if (iface->current_mode->mode != HOSTAPD_MODE_IEEE80211G)
 		return 1;
@@ -188,18 +188,18 @@ static int is_40_allowed(struct hostapd_iface *iface, int channel)
 	pri_freq = hostapd_hw_get_freq(iface->bss[0], iface->conf->channel);
 
 	if (iface->conf->secondary_channel > 0)
-		sec_freq = pri_freq + 20;
+		sec_freq = pri_freq + KHZ(20);
 	else
-		sec_freq = pri_freq - 20;
+		sec_freq = pri_freq - KHZ(20);
 
-	affected_start = (pri_freq + sec_freq) / 2 - 25;
-	affected_end = (pri_freq + sec_freq) / 2 + 25;
+	affected_start = (pri_freq + sec_freq) / 2 - KHZ(25);
+	affected_end = (pri_freq + sec_freq) / 2 + KHZ(25);
 	if ((pri < affected_start || pri > affected_end))
 		return 1; /* not within affected channel range */
 
-	wpa_printf(MSG_ERROR, "40 MHz affected channel range: [%d,%d] MHz",
-		   affected_start, affected_end);
-	wpa_printf(MSG_ERROR, "Neighboring BSS: freq=%d", pri);
+	wpa_printf(MSG_ERROR, "40 MHz affected channel range: [%g,%g] MHz",
+		   PR_KHZ(affected_start), PR_KHZ(affected_end));
+	wpa_printf(MSG_ERROR, "Neighboring BSS: freq=%g", PR_KHZ(pri));
 	return 0;
 }
 

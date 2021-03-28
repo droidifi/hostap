@@ -549,11 +549,11 @@ static int wnm_nei_get_chan(struct wpa_supplicant *wpa_s, u8 op_class, u8 chan)
 		 * frequency based on the channel number.
 		 */
 		if (chan >= 1 && chan <= 13)
-			freq = 2407 + chan * 5;
+			freq = KHZ(2407 + chan * 5);
 		else if (chan == 14)
-			freq = 2484;
+			freq = KHZ(2484);
 		else if (chan >= 36 && chan <= 177)
-			freq = 5000 + chan * 5;
+			freq = KHZ(5000 + chan * 5);
 	}
 	return freq;
 }
@@ -1226,12 +1226,12 @@ static void wnm_dump_cand_list(struct wpa_supplicant *wpa_s)
 
 		nei = &wpa_s->wnm_neighbor_report_elements[i];
 		wpa_printf(MSG_DEBUG, "%u: " MACSTR
-			   " info=0x%x op_class=%u chan=%u phy=%u pref=%d freq=%d",
+			   " info=0x%x op_class=%u chan=%u phy=%u pref=%d freq=%g",
 			   i, MAC2STR(nei->bssid), nei->bssid_info,
 			   nei->regulatory_class,
 			   nei->channel_number, nei->phy_type,
 			   nei->preference_present ? nei->preference : -1,
-			   nei->freq);
+			   PR_KHZ(nei->freq));
 	}
 }
 

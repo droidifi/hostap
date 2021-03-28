@@ -769,8 +769,9 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (sm->oci_freq_override_eapol) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override OCI KDE frequency %d -> %d MHz",
-				   ci.frequency, sm->oci_freq_override_eapol);
+				   "TEST: Override OCI KDE frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(sm->oci_freq_override_eapol));
 			ci.frequency = sm->oci_freq_override_eapol;
 		}
 #endif /* CONFIG_TESTING_OPTIONS */

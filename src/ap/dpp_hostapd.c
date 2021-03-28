@@ -59,8 +59,8 @@ int hostapd_dpp_qr_code(struct hostapd_data *hapd, const char *cmd)
 		wpa_printf(MSG_DEBUG,
 			   "DPP: Sending out pending authentication response");
 		wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-			" freq=%u type=%d",
-			MAC2STR(auth->peer_mac_addr), auth->curr_freq,
+			" freq=%g type=%d",
+			MAC2STR(auth->peer_mac_addr), PR_KHZ(auth->curr_freq),
 			DPP_PA_AUTHENTICATION_RESP);
 		hostapd_drv_send_action(hapd, auth->curr_freq, 0,
 					auth->peer_mac_addr,
@@ -171,8 +171,8 @@ static void hostapd_dpp_auth_resp_retry_timeout(void *eloop_ctx,
 	wpa_printf(MSG_DEBUG,
 		   "DPP: Retry Authentication Response after timeout");
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d",
-		MAC2STR(auth->peer_mac_addr), auth->curr_freq,
+		" freq=%g type=%d",
+		MAC2STR(auth->peer_mac_addr), PR_KHZ(auth->curr_freq),
 		DPP_PA_AUTHENTICATION_RESP);
 	hostapd_drv_send_action(hapd, auth->curr_freq, 500, auth->peer_mac_addr,
 				wpabuf_head(auth->resp_msg),
@@ -301,17 +301,18 @@ void hostapd_dpp_tx_status(struct hostapd_data *hapd, const u8 *dst,
 	if (!hapd->dpp_auth_ok_on_ack && hapd->dpp_auth->neg_freq > 0 &&
 	    hapd->dpp_auth->curr_freq != hapd->dpp_auth->neg_freq) {
 		wpa_printf(MSG_DEBUG,
-			   "DPP: Move from curr_freq %u MHz to neg_freq %u MHz for response",
-			   hapd->dpp_auth->curr_freq,
-			   hapd->dpp_auth->neg_freq);
+			   "DPP: Move from curr_freq %g MHz to neg_freq %g MHz for response",
+			   PR_KHZ(hapd->dpp_auth->curr_freq),
+			   PR_KHZ(hapd->dpp_auth->neg_freq));
 		hostapd_drv_send_action_cancel_wait(hapd);
 
 		if (hapd->dpp_auth->neg_freq !=
 		    (unsigned int) hapd->iface->freq && hapd->iface->freq > 0) {
 			/* TODO: Listen operation on non-operating channel */
 			wpa_printf(MSG_INFO,
-				   "DPP: Listen operation on non-operating channel (%d MHz) is not yet supported (operating channel: %d MHz)",
-				   hapd->dpp_auth->neg_freq, hapd->iface->freq);
+				   "DPP: Listen operation on non-operating channel (%g MHz) is not yet supported (operating channel: %g MHz)",
+				   PR_KHZ(hapd->dpp_auth->neg_freq),
+				   PR_KHZ(hapd->iface->freq));
 		}
 	}
 
@@ -376,15 +377,15 @@ static void hostapd_dpp_reply_wait_timeout(void *eloop_ctx, void *timeout_ctx)
 	if (auth->neg_freq > 0)
 		freq = auth->neg_freq;
 	wpa_printf(MSG_DEBUG,
-		   "DPP: Continue reply wait on channel %u MHz for %u ms",
-		   freq, wait_time);
+		   "DPP: Continue reply wait on channel %g MHz for %u ms",
+		   PR_KHZ(freq), wait_time);
 	hapd->dpp_in_response_listen = 1;
 
 	if (freq != (unsigned int) hapd->iface->freq && hapd->iface->freq > 0) {
 		/* TODO: Listen operation on non-operating channel */
 		wpa_printf(MSG_INFO,
-			   "DPP: Listen operation on non-operating channel (%d MHz) is not yet supported (operating channel: %d MHz)",
-			   freq, hapd->iface->freq);
+			   "DPP: Listen operation on non-operating channel (%g MHz) is not yet supported (operating channel: %g MHz)",
+			   PR_KHZ(freq), PR_KHZ(hapd->iface->freq));
 	}
 
 	eloop_register_timeout(wait_time / 1000, (wait_time % 1000) * 1000,
@@ -514,12 +515,12 @@ static int hostapd_dpp_auth_init_next(struct hostapd_data *hapd)
 	wait_time -= 10;
 	if (auth->neg_freq > 0 && freq != auth->neg_freq) {
 		wpa_printf(MSG_DEBUG,
-			   "DPP: Initiate on %u MHz and move to neg_freq %u MHz for response",
-			   freq, auth->neg_freq);
+			   "DPP: Initiate on %g MHz and move to neg_freq %g MHz for response",
+			   PR_KHZ(freq), PR_KHZ(auth->neg_freq));
 	}
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d",
-		MAC2STR(dst), freq, DPP_PA_AUTHENTICATION_REQ);
+		" freq=%g type=%d",
+		MAC2STR(dst), PR_KHZ(freq), DPP_PA_AUTHENTICATION_REQ);
 	auth->auth_req_ack = 0;
 	os_get_reltime(&hapd->dpp_last_init);
 	return hostapd_drv_send_action(hapd, freq, wait_time,
@@ -624,7 +625,7 @@ int hostapd_dpp_auth_init(struct hostapd_data *hapd, const char *cmd)
 
 	pos = os_strstr(cmd, " neg_freq=");
 	if (pos)
-		neg_freq = atoi(pos + 10);
+		neg_freq = KHZ(atof(pos + 10));
 
 	if (!tcp && hapd->dpp_auth) {
 		eloop_cancel_timeout(hostapd_dpp_init_timeout, hapd, NULL);
@@ -678,7 +679,7 @@ int hostapd_dpp_listen(struct hostapd_data *hapd, const char *cmd)
 {
 	int freq;
 
-	freq = atoi(cmd);
+	freq = KHZ(atof(cmd));
 	if (freq <= 0)
 		return -1;
 
@@ -694,8 +695,8 @@ int hostapd_dpp_listen(struct hostapd_data *hapd, const char *cmd)
 	if (freq != hapd->iface->freq && hapd->iface->freq > 0) {
 		/* TODO: Listen operation on non-operating channel */
 		wpa_printf(MSG_INFO,
-			   "DPP: Listen operation on non-operating channel (%d MHz) is not yet supported (operating channel: %d MHz)",
-			   freq, hapd->iface->freq);
+			   "DPP: Listen operation on non-operating channel (%g MHz) is not yet supported (operating channel: %g MHz)",
+			   PR_KHZ(freq), PR_KHZ(hapd->iface->freq));
 		return -1;
 	}
 
@@ -792,8 +793,8 @@ static void hostapd_dpp_rx_auth_req(struct hostapd_data *hapd, const u8 *src,
 	os_memcpy(hapd->dpp_auth->peer_mac_addr, src, ETH_ALEN);
 
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d",
-		MAC2STR(src), hapd->dpp_auth->curr_freq,
+		" freq=%g type=%d",
+		MAC2STR(src), PR_KHZ(hapd->dpp_auth->curr_freq),
 		DPP_PA_AUTHENTICATION_RESP);
 	hostapd_drv_send_action(hapd, hapd->dpp_auth->curr_freq, 0,
 				src, wpabuf_head(hapd->dpp_auth->resp_msg),
@@ -969,8 +970,8 @@ fail:
 			goto fail2;
 
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
-			DPP_EVENT_TX "dst=" MACSTR " freq=%u type=%d",
-			MAC2STR(addr), auth->curr_freq,
+			DPP_EVENT_TX "dst=" MACSTR " freq=%g type=%d",
+			MAC2STR(addr), PR_KHZ(auth->curr_freq),
 			DPP_PA_CONFIGURATION_RESULT);
 		hostapd_drv_send_action(hapd, auth->curr_freq, 0,
 					addr, wpabuf_head(msg),
@@ -1003,8 +1004,8 @@ static void hostapd_dpp_start_gas_client(struct hostapd_data *hapd)
 		return;
 	}
 
-	wpa_printf(MSG_DEBUG, "DPP: GAS request to " MACSTR " (freq %u MHz)",
-		   MAC2STR(auth->peer_mac_addr), auth->curr_freq);
+	wpa_printf(MSG_DEBUG, "DPP: GAS request to " MACSTR " (freq %g MHz)",
+		   MAC2STR(auth->peer_mac_addr), PR_KHZ(auth->curr_freq));
 
 	res = gas_query_ap_req(hapd->gas, auth->peer_mac_addr, auth->curr_freq,
 			       buf, hostapd_dpp_gas_resp_cb, hapd);
@@ -1085,7 +1086,7 @@ static void hostapd_dpp_rx_auth_resp(struct hostapd_data *hapd, const u8 *src,
 	os_memcpy(auth->peer_mac_addr, src, ETH_ALEN);
 
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d", MAC2STR(src), auth->curr_freq,
+		" freq=%g type=%d", MAC2STR(src), PR_KHZ(auth->curr_freq),
 		DPP_PA_AUTHENTICATION_CONF);
 	hostapd_drv_send_action(hapd, auth->curr_freq, 0, src,
 				wpabuf_head(msg), wpabuf_len(msg));
@@ -1566,7 +1567,7 @@ skip_connector:
 	wpa_printf(MSG_DEBUG, "DPP: Send Peer Discovery Response to " MACSTR
 		   " status=%d", MAC2STR(src), status);
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d status=%d", MAC2STR(src), freq,
+		" freq=%g type=%d status=%d", MAC2STR(src), PR_KHZ(freq),
 		DPP_PA_PEER_DISCOVERY_RESP, status);
 	hostapd_drv_send_action(hapd, freq, 0, src,
 				wpabuf_head(msg), wpabuf_len(msg));
@@ -1705,7 +1706,7 @@ hostapd_dpp_rx_pkex_exchange_req(struct hostapd_data *hapd, const u8 *src,
 
 	msg = hapd->dpp_pkex->exchange_resp;
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d", MAC2STR(src), freq,
+		" freq=%g type=%d", MAC2STR(src), PR_KHZ(freq),
 		DPP_PA_PKEX_EXCHANGE_RESP);
 	hostapd_drv_send_action(hapd, freq, 0, src,
 				wpabuf_head(msg), wpabuf_len(msg));
@@ -1748,7 +1749,7 @@ hostapd_dpp_rx_pkex_exchange_resp(struct hostapd_data *hapd, const u8 *src,
 		   MAC2STR(src));
 
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d", MAC2STR(src), freq,
+		" freq=%g type=%d", MAC2STR(src), PR_KHZ(freq),
 		DPP_PA_PKEX_COMMIT_REVEAL_REQ);
 	hostapd_drv_send_action(hapd, freq, 0, src,
 				wpabuf_head(msg), wpabuf_len(msg));
@@ -1791,7 +1792,7 @@ hostapd_dpp_rx_pkex_commit_reveal_req(struct hostapd_data *hapd, const u8 *src,
 		   MACSTR, MAC2STR(src));
 
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-		" freq=%u type=%d", MAC2STR(src), freq,
+		" freq=%g type=%d", MAC2STR(src), PR_KHZ(freq),
 		DPP_PA_PKEX_COMMIT_REVEAL_RESP);
 	hostapd_drv_send_action(hapd, freq, 0, src,
 				wpabuf_head(msg), wpabuf_len(msg));
@@ -1868,25 +1869,25 @@ void hostapd_dpp_rx_action(struct hostapd_data *hapd, const u8 *src,
 
 	wpa_printf(MSG_DEBUG,
 		   "DPP: Received DPP Public Action frame crypto suite %u type %d from "
-		   MACSTR " freq=%u",
-		   crypto_suite, type, MAC2STR(src), freq);
+		   MACSTR " freq=%g",
+		   crypto_suite, type, MAC2STR(src), PR_KHZ(freq));
 	if (crypto_suite != 1) {
 		wpa_printf(MSG_DEBUG, "DPP: Unsupported crypto suite %u",
 			   crypto_suite);
 		wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_RX "src=" MACSTR
-			" freq=%u type=%d ignore=unsupported-crypto-suite",
-			MAC2STR(src), freq, type);
+			" freq=%g type=%d ignore=unsupported-crypto-suite",
+			MAC2STR(src), PR_KHZ(freq), type);
 		return;
 	}
 	wpa_hexdump(MSG_MSGDUMP, "DPP: Received message attributes", buf, len);
 	if (dpp_check_attrs(buf, len) < 0) {
 		wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_RX "src=" MACSTR
-			" freq=%u type=%d ignore=invalid-attributes",
-			MAC2STR(src), freq, type);
+			" freq=%g type=%d ignore=invalid-attributes",
+			MAC2STR(src), PR_KHZ(freq), type);
 		return;
 	}
 	wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_RX "src=" MACSTR
-		" freq=%u type=%d", MAC2STR(src), freq, type);
+		" freq=%g type=%d", MAC2STR(src), PR_KHZ(freq), type);
 
 #ifdef CONFIG_DPP2
 	if (dpp_relay_rx_action(hapd->iface->interfaces->dpp,
@@ -2117,9 +2118,9 @@ int hostapd_dpp_pkex_add(struct hostapd_data *hapd, const char *cmd)
 		msg = hapd->dpp_pkex->exchange_req;
 		/* TODO: Which channel to use? */
 		wpa_msg(hapd->msg_ctx, MSG_INFO, DPP_EVENT_TX "dst=" MACSTR
-			" freq=%u type=%d", MAC2STR(broadcast), 2437,
+			" freq=%g type=%d", MAC2STR(broadcast), (float)2437,
 			DPP_PA_PKEX_EXCHANGE_REQ);
-		hostapd_drv_send_action(hapd, 2437, 0, broadcast,
+		hostapd_drv_send_action(hapd, KHZ(2437), 0, broadcast,
 					wpabuf_head(msg), wpabuf_len(msg));
 	}
 
@@ -2179,8 +2180,8 @@ static void hostapd_dpp_relay_tx(void *ctx, const u8 *addr, unsigned int freq,
 	struct hostapd_data *hapd = ctx;
 	u8 *buf;
 
-	wpa_printf(MSG_DEBUG, "DPP: Send action frame dst=" MACSTR " freq=%u",
-		   MAC2STR(addr), freq);
+	wpa_printf(MSG_DEBUG, "DPP: Send action frame dst=" MACSTR " freq=%g",
+		   MAC2STR(addr), PR_KHZ(freq));
 	buf = os_malloc(2 + len);
 	if (!buf)
 		return;
@@ -2390,7 +2391,7 @@ hostapd_dpp_chirp_scan_res_handler(struct hostapd_iface *iface)
 	}
 
 	/* Preferred chirping channels */
-	int_array_add_unique(&hapd->dpp_chirp_freqs, 2437);
+	int_array_add_unique(&hapd->dpp_chirp_freqs, KHZ(2437));
 
 	mode = dpp_get_mode(hapd, HOSTAPD_MODE_IEEE80211A);
 	if (mode) {
@@ -2402,15 +2403,15 @@ hostapd_dpp_chirp_scan_res_handler(struct hostapd_iface *iface)
 			if (chan->flag & (HOSTAPD_CHAN_DISABLED |
 					  HOSTAPD_CHAN_RADAR))
 				continue;
-			if (chan->freq == 5220)
+			if (chan->freq == KHZ(5220))
 				chan44 = 1;
-			if (chan->freq == 5745)
+			if (chan->freq == KHZ(5745))
 				chan149 = 1;
 		}
 		if (chan149)
-			int_array_add_unique(&hapd->dpp_chirp_freqs, 5745);
+			int_array_add_unique(&hapd->dpp_chirp_freqs, KHZ(5745));
 		else if (chan44)
-			int_array_add_unique(&hapd->dpp_chirp_freqs, 5220);
+			int_array_add_unique(&hapd->dpp_chirp_freqs, KHZ(5220));
 	}
 
 	mode = dpp_get_mode(hapd, HOSTAPD_MODE_IEEE80211AD);
@@ -2420,9 +2421,9 @@ hostapd_dpp_chirp_scan_res_handler(struct hostapd_iface *iface)
 
 			if ((chan->flag & (HOSTAPD_CHAN_DISABLED |
 					   HOSTAPD_CHAN_RADAR)) ||
-			    chan->freq != 60480)
+			    chan->freq != KHZ(60480))
 				continue;
-			int_array_add_unique(&hapd->dpp_chirp_freqs, 60480);
+			int_array_add_unique(&hapd->dpp_chirp_freqs, KHZ(60480));
 			break;
 		}
 	}
@@ -2489,8 +2490,8 @@ static void hostapd_dpp_chirp_next(void *eloop_ctx, void *timeout_ctx)
 				break;
 		if (!hapd->dpp_chirp_freqs[i]) {
 			wpa_printf(MSG_DEBUG,
-				   "DPP: Previous chirp freq %d not found",
-				   hapd->dpp_chirp_freq);
+				   "DPP: Previous chirp freq %g not found",
+				   PR_KHZ(hapd->dpp_chirp_freq));
 			return;
 		}
 		i++;

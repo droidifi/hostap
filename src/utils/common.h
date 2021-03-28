@@ -543,6 +543,7 @@ struct wpa_freq_range_list {
 	unsigned int num;
 };
 
+int int_range_list_parse(struct wpa_freq_range_list *res, const char *value);
 int freq_range_list_parse(struct wpa_freq_range_list *res, const char *value);
 int freq_range_list_includes(const struct wpa_freq_range_list *list,
 			     unsigned int freq);

@@ -801,25 +801,25 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 		dev->info.p2ps_instance = wpabuf_alloc_copy(
 			msg.adv_service_instance, msg.adv_service_instance_len);
 
-	if (freq >= 2412 && freq <= 2484 && msg.ds_params &&
+	if (freq >= KHZ(2412) && freq <= KHZ(2484) && msg.ds_params &&
 	    *msg.ds_params >= 1 && *msg.ds_params <= 14) {
 		int ds_freq;
 		if (*msg.ds_params == 14)
-			ds_freq = 2484;
+			ds_freq = KHZ(2484);
 		else
-			ds_freq = 2407 + *msg.ds_params * 5;
+			ds_freq = KHZ(2407 + *msg.ds_params * 5);
 		if (freq != ds_freq) {
-			p2p_dbg(p2p, "Update Listen frequency based on DS Parameter Set IE: %d -> %d MHz",
-				freq, ds_freq);
+			p2p_dbg(p2p, "Update Listen frequency based on DS Parameter Set IE: %g -> %g MHz",
+				PR_KHZ(freq), PR_KHZ(ds_freq));
 			freq = ds_freq;
 		}
 	}
 
 	if (dev->listen_freq && dev->listen_freq != freq && scan_res) {
 		p2p_dbg(p2p, "Update Listen frequency based on scan results ("
-			MACSTR " %d -> %d MHz (DS param %d)",
-			MAC2STR(dev->info.p2p_device_addr), dev->listen_freq,
-			freq, msg.ds_params ? *msg.ds_params : -1);
+			MACSTR " %g -> %g MHz (DS param %d)",
+			MAC2STR(dev->info.p2p_device_addr), PR_KHZ(dev->listen_freq),
+			PR_KHZ(freq), msg.ds_params ? *msg.ds_params : -1);
 	}
 	if (scan_res) {
 		dev->listen_freq = freq;
@@ -873,8 +873,8 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 	     (dev->flags & P2P_DEV_P2PS_REPORTED)))
 		return 0;
 
-	p2p_dbg(p2p, "Peer found with Listen frequency %d MHz (rx_time=%u.%06u)",
-		freq, (unsigned int) rx_time->sec,
+	p2p_dbg(p2p, "Peer found with Listen frequency %g MHz (rx_time=%u.%06u)",
+		PR_KHZ(freq), (unsigned int) rx_time->sec,
 		(unsigned int) rx_time->usec);
 	if (dev->flags & P2P_DEV_USER_REJECTED) {
 		p2p_dbg(p2p, "Do not report rejected device");
@@ -882,7 +882,7 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 	}
 
 	if (dev->info.config_methods == 0 &&
-	    (freq == 2412 || freq == 2437 || freq == 2462)) {
+	    (freq == KHZ(2412) || freq == KHZ(2437) || freq == KHZ(2462))) {
 		/*
 		 * If we have only seen a Beacon frame from a GO, we do not yet
 		 * know what WPS config methods it supports. Since some
@@ -992,12 +992,12 @@ static int p2p_get_next_prog_freq(struct p2p_data *p2p)
 	}
 
 	freq = p2p_channel_to_freq(reg_class, channel);
-	p2p_dbg(p2p, "Next progressive search channel: reg_class %u channel %u -> %d MHz",
-		reg_class, channel, freq);
+	p2p_dbg(p2p, "Next progressive search channel: reg_class %u channel %u -> %g MHz",
+		reg_class, channel, PR_KHZ(freq));
 	p2p->last_prog_scan_class = reg_class;
 	p2p->last_prog_scan_chan = channel;
 
-	if (freq == 2412 || freq == 2437 || freq == 2462)
+	if (freq == KHZ(2412) || freq == KHZ(2437) || freq == KHZ(2462))
 		return 0; /* No need to add social channels */
 	return freq;
 }
@@ -1027,7 +1027,7 @@ static void p2p_search(struct p2p_data *p2p)
 	    (p2p->find_type == P2P_FIND_START_WITH_FULL &&
 	     (freq = p2p->find_specified_freq) > 0)) {
 		type = P2P_SCAN_SOCIAL_PLUS_ONE;
-		p2p_dbg(p2p, "Starting search (+ freq %u)", freq);
+		p2p_dbg(p2p, "Starting search (+ freq %g)", PR_KHZ(freq));
 	} else {
 		type = P2P_SCAN_SOCIAL;
 		p2p_dbg(p2p, "Starting search");
@@ -1234,7 +1234,8 @@ int p2p_find(struct p2p_data *p2p, unsigned int timeout,
 	p2p->cfg->stop_listen(p2p->cfg->cb_ctx);
 	p2p->find_pending_full = 0;
 	p2p->find_type = type;
-	if (freq != 2412 && freq != 2437 && freq != 2462 && freq != 60480)
+	if (freq != KHZ(2412) && freq != KHZ(2437) && freq != KHZ(2462) &&
+	    freq != KHZ(60480))
 		p2p->find_specified_freq = freq;
 	else
 		p2p->find_specified_freq = 0;
@@ -1372,8 +1373,8 @@ static int p2p_prepare_channel_pref(struct p2p_data *p2p,
 	u8 op_class, op_channel;
 	unsigned int freq = force_freq ? force_freq : pref_freq;
 
-	p2p_dbg(p2p, "Prepare channel pref - force_freq=%u pref_freq=%u go=%d",
-		force_freq, pref_freq, go);
+	p2p_dbg(p2p, "Prepare channel pref - force_freq=%g pref_freq=%g go=%d",
+		PR_KHZ(force_freq), PR_KHZ(pref_freq), go);
 	if (p2p_freq_to_channel(freq, &op_class, &op_channel) < 0) {
 		p2p_dbg(p2p, "Unsupported frequency %u MHz", freq);
 		return -1;
@@ -1382,8 +1383,8 @@ static int p2p_prepare_channel_pref(struct p2p_data *p2p,
 	if (!p2p_channels_includes(&p2p->cfg->channels, op_class, op_channel) &&
 	    (go || !p2p_channels_includes(&p2p->cfg->cli_channels, op_class,
 					  op_channel))) {
-		p2p_dbg(p2p, "Frequency %u MHz (oper_class %u channel %u) not allowed for P2P",
-			freq, op_class, op_channel);
+		p2p_dbg(p2p, "Frequency %g MHz (oper_class %u channel %u) not allowed for P2P",
+			PR_KHZ(freq), op_class, op_channel);
 		return -1;
 	}
 
@@ -1506,8 +1507,8 @@ static void p2p_prepare_channel_best(struct p2p_data *p2p)
 int p2p_prepare_channel(struct p2p_data *p2p, struct p2p_device *dev,
 			unsigned int force_freq, unsigned int pref_freq, int go)
 {
-	p2p_dbg(p2p, "Prepare channel - force_freq=%u pref_freq=%u go=%d",
-		force_freq, pref_freq, go);
+	p2p_dbg(p2p, "Prepare channel - force_freq=%g pref_freq=%g go=%d",
+		PR_KHZ(force_freq), PR_KHZ(pref_freq), go);
 	if (force_freq || pref_freq) {
 		if (p2p_prepare_channel_pref(p2p, force_freq, pref_freq, go) <
 		    0)
@@ -1747,10 +1748,10 @@ void p2p_add_dev_info(struct p2p_data *p2p, const u8 *addr,
 	} else {
 		p2p_dbg(p2p, "Created device entry based on GO Neg Req: "
 			MACSTR " dev_capab=0x%x group_capab=0x%x name='%s' "
-			"listen_freq=%d",
+			"listen_freq=%g",
 			MAC2STR(dev->info.p2p_device_addr),
 			dev->info.dev_capab, dev->info.group_capab,
-			dev->info.device_name, dev->listen_freq);
+			dev->info.device_name, PR_KHZ(dev->listen_freq));
 	}
 
 	dev->flags &= ~P2P_DEV_GROUP_CLIENT_ONLY;
@@ -2095,10 +2096,10 @@ static void p2p_add_dev_from_probe_req(struct p2p_data *p2p, const u8 *addr,
 	p2p_parse_free(&msg);
 
 	p2p_dbg(p2p, "Created device entry based on Probe Req: " MACSTR
-		" dev_capab=0x%x group_capab=0x%x name='%s' listen_freq=%d",
+		" dev_capab=0x%x group_capab=0x%x name='%s' listen_freq=%g",
 		MAC2STR(dev->info.p2p_device_addr), dev->info.dev_capab,
 		dev->info.group_capab, dev->info.device_name,
-		dev->listen_freq);
+		PR_KHZ(dev->listen_freq));
 }
 
 
@@ -3767,10 +3768,11 @@ void p2p_send_action_cb(struct p2p_data *p2p, unsigned int freq, const u8 *dst,
 	enum p2p_pending_action_state state;
 	int success;
 
-	p2p_dbg(p2p, "Action frame TX callback (state=%d freq=%u dst=" MACSTR
+	p2p_dbg(p2p, "Action frame TX callback (state=%d freq=%g dst=" MACSTR
 		" src=" MACSTR " bssid=" MACSTR " result=%d p2p_state=%s)",
-		p2p->pending_action_state, freq, MAC2STR(dst), MAC2STR(src),
-		MAC2STR(bssid), result, p2p_state_txt(p2p->state));
+		p2p->pending_action_state, PR_KHZ(freq), MAC2STR(dst),
+		MAC2STR(src), MAC2STR(bssid), result,
+		p2p_state_txt(p2p->state));
 	success = result == P2P_SEND_ACTION_SUCCESS;
 	state = p2p->pending_action_state;
 	p2p->pending_action_state = P2P_NO_PENDING_ACTION;
@@ -3831,14 +3833,14 @@ void p2p_listen_cb(struct p2p_data *p2p, unsigned int freq,
 	}
 
 	if (freq != p2p->pending_listen_freq) {
-		p2p_dbg(p2p, "Unexpected listen callback for freq=%u duration=%u (pending_listen_freq=%u)",
-			freq, duration, p2p->pending_listen_freq);
+		p2p_dbg(p2p, "Unexpected listen callback for freq=%g duration=%u (pending_listen_freq=%u)",
+			PR_KHZ(freq), duration, p2p->pending_listen_freq);
 		return;
 	}
 
-	p2p_dbg(p2p, "Starting Listen timeout(%u,%u) on freq=%u based on callback",
+	p2p_dbg(p2p, "Starting Listen timeout(%u,%u) on freq=%g based on callback",
 		p2p->pending_listen_sec, p2p->pending_listen_usec,
-		p2p->pending_listen_freq);
+		PR_KHZ(p2p->pending_listen_freq));
 	p2p->in_listen = 1;
 	p2p->drv_in_listen = freq;
 	if (p2p->pending_listen_sec || p2p->pending_listen_usec) {
@@ -3857,7 +3859,7 @@ void p2p_listen_cb(struct p2p_data *p2p, unsigned int freq,
 
 int p2p_listen_end(struct p2p_data *p2p, unsigned int freq)
 {
-	p2p_dbg(p2p, "Driver ended Listen state (freq=%u)", freq);
+	p2p_dbg(p2p, "Driver ended Listen state (freq=%g)", PR_KHZ(freq));
 	p2p->drv_in_listen = 0;
 	if (p2p->in_listen)
 		return 0; /* Internal timeout will trigger the next step */
@@ -4281,7 +4283,7 @@ int p2p_get_peer_info_txt(const struct p2p_peer_info *info,
 	os_get_reltime(&now);
 	res = os_snprintf(pos, end - pos,
 			  "age=%d\n"
-			  "listen_freq=%d\n"
+			  "listen_freq=%g\n"
 			  "wps_method=%s\n"
 			  "interface_addr=" MACSTR "\n"
 			  "member_in_go_dev=" MACSTR "\n"
@@ -4291,13 +4293,13 @@ int p2p_get_peer_info_txt(const struct p2p_peer_info *info,
 			  "dialog_token=%u\n"
 			  "intended_addr=" MACSTR "\n"
 			  "country=%c%c\n"
-			  "oper_freq=%d\n"
+			  "oper_freq=%g\n"
 			  "req_config_methods=0x%x\n"
 			  "flags=%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n"
 			  "status=%d\n"
 			  "invitation_reqs=%u\n",
 			  (int) (now.sec - dev->last_seen.sec),
-			  dev->listen_freq,
+			  PR_KHZ(dev->listen_freq),
 			  p2p_wps_method_text(dev->wps_method),
 			  MAC2STR(dev->interface_addr),
 			  MAC2STR(dev->member_in_go_dev),
@@ -4308,7 +4310,7 @@ int p2p_get_peer_info_txt(const struct p2p_peer_info *info,
 			  MAC2STR(dev->intended_addr),
 			  dev->country[0] ? dev->country[0] : '_',
 			  dev->country[1] ? dev->country[1] : '_',
-			  dev->oper_freq,
+			  PR_KHZ(dev->oper_freq),
 			  dev->req_config_methods,
 			  dev->flags & P2P_DEV_PROBE_REQ_ONLY ?
 			  "[PROBE_REQ_ONLY]" : "",
@@ -4450,10 +4452,10 @@ int p2p_presence_req(struct p2p_data *p2p, const u8 *go_interface_addr,
 	struct wpabuf *req;
 
 	p2p_dbg(p2p, "Send Presence Request to GO " MACSTR
-		" (own interface " MACSTR ") freq=%u dur1=%u int1=%u "
+		" (own interface " MACSTR ") freq=%g dur1=%u int1=%u "
 		"dur2=%u int2=%u",
 		MAC2STR(go_interface_addr), MAC2STR(own_interface_addr),
-		freq, duration1, interval1, duration2, interval2);
+		PR_KHZ(freq), duration1, interval1, duration2, interval2);
 
 	req = p2p_build_presence_req(duration1, interval1, duration2,
 				     interval2);

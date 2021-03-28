@@ -416,7 +416,7 @@ void p2p_reselect_channel(struct p2p_data *p2p,
 
 	/* First, try to pick the best channel from another band */
 	freq = p2p_channel_to_freq(p2p->op_reg_class, p2p->op_channel);
-	if (freq >= 2400 && freq < 2500 && p2p->best_freq_5 > 0 &&
+	if (freq >= KHZ(2400) && freq < KHZ(2500) && p2p->best_freq_5 > 0 &&
 	    !p2p_channels_includes(intersection, p2p->op_reg_class,
 				   p2p->op_channel) &&
 	    p2p_freq_to_channel(p2p->best_freq_5,
@@ -429,7 +429,7 @@ void p2p_reselect_channel(struct p2p_data *p2p,
 		return;
 	}
 
-	if (freq >= 4900 && freq < 6000 && p2p->best_freq_24 > 0 &&
+	if (freq >= KHZ(4900) && freq < KHZ(6000) && p2p->best_freq_24 > 0 &&
 	    !p2p_channels_includes(intersection, p2p->op_reg_class,
 				   p2p->op_channel) &&
 	    p2p_freq_to_channel(p2p->best_freq_24,
@@ -751,8 +751,8 @@ void p2p_process_go_neg_req(struct p2p_data *p2p, const u8 *sa,
 	int tie_breaker = 0;
 	int freq;
 
-	p2p_dbg(p2p, "Received GO Negotiation Request from " MACSTR "(freq=%d)",
-		MAC2STR(sa), rx_freq);
+	p2p_dbg(p2p, "Received GO Negotiation Request from " MACSTR "(freq=%g)",
+		MAC2STR(sa), PR_KHZ(rx_freq));
 
 	if (p2p_parse(data, len, &msg))
 		return;
@@ -1157,7 +1157,7 @@ void p2p_process_go_neg_resp(struct p2p_data *p2p, const u8 *sa,
 	int freq;
 
 	p2p_dbg(p2p, "Received GO Negotiation Response from " MACSTR
-		" (freq=%d)", MAC2STR(sa), rx_freq);
+		" (freq=%g)", MAC2STR(sa), PR_KHZ(rx_freq));
 	dev = p2p_get_device(p2p, sa);
 	if (dev == NULL || dev->wps_method == WPS_NOT_READY ||
 	    dev != p2p->go_neg_peer) {

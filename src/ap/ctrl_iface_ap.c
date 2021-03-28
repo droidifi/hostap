@@ -680,7 +680,7 @@ int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 	ret = os_snprintf(buf + len, buflen - len,
 			  "state=%s\n"
 			  "phy=%s\n"
-			  "freq=%d\n"
+			  "freq=%g\n"
 			  "num_sta_non_erp=%d\n"
 			  "num_sta_no_short_slot_time=%d\n"
 			  "num_sta_no_short_preamble=%d\n"
@@ -693,7 +693,7 @@ int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 			  "ht_op_mode=0x%x\n",
 			  hostapd_state_text(iface->state),
 			  iface->phy,
-			  iface->freq,
+			  PR_KHZ(iface->freq),
 			  iface->num_sta_non_erp,
 			  iface->num_sta_no_short_slot_time,
 			  iface->num_sta_no_short_preamble,
@@ -888,7 +888,7 @@ int hostapd_parse_csa_settings(const char *pos,
 		return -1;
 	}
 
-	settings->freq_params.freq = atoi(end);
+	settings->freq_params.freq = KHZ(atof(end));
 	if (settings->freq_params.freq == 0) {
 		wpa_printf(MSG_ERROR, "chanswitch: invalid freq provided");
 		return -1;
@@ -905,6 +905,9 @@ int hostapd_parse_csa_settings(const char *pos,
 
 	SET_CSA_SETTING(center_freq1);
 	SET_CSA_SETTING(center_freq2);
+	/* TODO: fixup for now, but should have parsed as floats */
+	settings->freq_params.center_freq1 = KHZ(settings->freq_params.center_freq1);
+	settings->freq_params.center_freq2 = KHZ(settings->freq_params.center_freq2);
 	SET_CSA_SETTING(bandwidth);
 	SET_CSA_SETTING(sec_channel_offset);
 	settings->freq_params.ht_enabled = !!os_strstr(pos, " ht");

@@ -2210,7 +2210,7 @@ int wpa_driver_wext_associate(void *priv,
 	if (wpa_driver_wext_set_auth_param(drv, IW_AUTH_MFP, value) < 0)
 		ret = -1;
 	if (params->freq.freq &&
-	    wpa_driver_wext_set_freq(drv, params->freq.freq) < 0)
+	    wpa_driver_wext_set_freq(drv, MHZ(params->freq.freq)) < 0)
 		ret = -1;
 	if (!drv->cfg80211 &&
 	    wpa_driver_wext_set_ssid(drv, params->ssid, params->ssid_len) < 0)

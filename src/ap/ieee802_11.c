@@ -5909,9 +5909,10 @@ static int handle_action(struct hostapd_data *hapd,
 
 	action = (u8 *) &mgmt->u.action.u;
 	wpa_printf(MSG_DEBUG, "RX_ACTION category %u action %u sa " MACSTR
-		   " da " MACSTR " len %d freq %u",
+		   " da " MACSTR " len %d freq %g",
 		   mgmt->u.action.category, *action,
-		   MAC2STR(mgmt->sa), MAC2STR(mgmt->da), (int) len, freq);
+		   MAC2STR(mgmt->sa), MAC2STR(mgmt->da), (int) len,
+		   PR_KHZ(freq));
 
 	sta = ap_get_sta(hapd, mgmt->sa);
 

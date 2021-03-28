@@ -763,11 +763,11 @@ static int wpa_supplicant_ctrl_iface_set(struct wpa_supplicant *wpa_s,
 	} else if (os_strcasecmp(cmd, "ft_rsnxe_used") == 0) {
 		wpa_s->ft_rsnxe_used = atoi(value);
 	} else if (os_strcasecmp(cmd, "oci_freq_override_eapol") == 0) {
-		wpa_s->oci_freq_override_eapol = atoi(value);
+		wpa_s->oci_freq_override_eapol = KHZ(atoi(value));
 	} else if (os_strcasecmp(cmd, "oci_freq_override_saquery_req") == 0) {
-		wpa_s->oci_freq_override_saquery_req = atoi(value);
+		wpa_s->oci_freq_override_saquery_req = KHZ(atoi(value));
 	} else if (os_strcasecmp(cmd, "oci_freq_override_saquery_resp") == 0) {
-		wpa_s->oci_freq_override_saquery_resp = atoi(value);
+		wpa_s->oci_freq_override_saquery_resp = KHZ(atoi(value));
 	} else if (os_strcasecmp(cmd, "oci_freq_override_eapol_g2") == 0) {
 		wpa_s->oci_freq_override_eapol_g2 = atoi(value);
 		/* Populate value to wpa_sm if already associated. */
@@ -1132,7 +1132,7 @@ static int wpa_supplicant_ctrl_iface_tdls_chan_switch(
 	}
 
 	pos = end;
-	freq_params.freq = atoi(pos);
+	freq_params.freq = KHZ(atof(pos));
 	if (freq_params.freq == 0) {
 		wpa_printf(MSG_INFO, "tdls_chanswitch: Invalid freq provided");
 		return -1;
@@ -1149,6 +1149,9 @@ static int wpa_supplicant_ctrl_iface_tdls_chan_switch(
 
 	SET_FREQ_SETTING(center_freq1);
 	SET_FREQ_SETTING(center_freq2);
+	/* TODO: fix */
+	freq_params.center_freq1 = KHZ(freq_params.center_freq1);
+	freq_params.center_freq2 = KHZ(freq_params.center_freq2);
 	SET_FREQ_SETTING(bandwidth);
 	SET_FREQ_SETTING(sec_channel_offset);
 #undef SET_FREQ_SETTING
@@ -1164,9 +1167,10 @@ static int wpa_supplicant_ctrl_iface_tdls_chan_switch(
 	}
 
 	wpa_printf(MSG_DEBUG, "CTRL_IFACE TDLS_CHAN_SWITCH " MACSTR
-		   " OP CLASS %d FREQ %d CENTER1 %d CENTER2 %d BW %d SEC_OFFSET %d%s%s",
-		   MAC2STR(peer), oper_class, freq_params.freq,
-		   freq_params.center_freq1, freq_params.center_freq2,
+		   " OP CLASS %d FREQ %g CENTER1 %g CENTER2 %g BW %d SEC_OFFSET %d%s%s",
+		   MAC2STR(peer), oper_class, PR_KHZ(freq_params.freq),
+		   PR_KHZ(freq_params.center_freq1),
+		   PR_KHZ(freq_params.center_freq2),
 		   freq_params.bandwidth, freq_params.sec_channel_offset,
 		   freq_params.ht_enabled ? " HT" : "",
 		   freq_params.vht_enabled ? " VHT" : "");
@@ -1563,7 +1567,7 @@ static int wpa_supplicant_ctrl_iface_wps_nfc_tag_read(
 	if (freq) {
 		*freq = '\0';
 		freq += 6;
-		forced_freq = atoi(freq);
+		forced_freq = KHZ(atof(freq));
 	}
 
 	len = os_strlen(pos);
@@ -1778,7 +1782,7 @@ static int wpas_ctrl_nfc_report_handover(struct wpa_supplicant *wpa_s,
 	if (freq) {
 		*freq = '\0';
 		freq += 6;
-		forced_freq = atoi(freq);
+		forced_freq = KHZ(atof(freq));
 	}
 #endif /* CONFIG_P2P */
 
@@ -2203,8 +2207,8 @@ static int wpa_supplicant_ctrl_iface_status(struct wpa_supplicant *wpa_s,
 		if (os_snprintf_error(end - pos, ret))
 			return pos - buf;
 		pos += ret;
-		ret = os_snprintf(pos, end - pos, "freq=%u\n",
-				  wpa_s->assoc_freq);
+		ret = os_snprintf(pos, end - pos, "freq=%g\n",
+				  PR_KHZ(wpa_s->assoc_freq));
 		if (os_snprintf_error(end - pos, ret))
 			return pos - buf;
 		pos += ret;
@@ -2985,8 +2989,8 @@ static int wpa_supplicant_ctrl_iface_scan_result(
 	pos = buf;
 	end = buf + buflen;
 
-	ret = os_snprintf(pos, end - pos, MACSTR "\t%d\t%d\t",
-			  MAC2STR(bss->bssid), bss->freq, bss->level);
+	ret = os_snprintf(pos, end - pos, MACSTR "\t%g\t%d\t",
+			  MAC2STR(bss->bssid), PR_KHZ(bss->freq), bss->level);
 	if (os_snprintf_error(end - pos, ret))
 		return -1;
 	pos += ret;
@@ -4648,8 +4652,8 @@ static int ctrl_iface_get_capability_freq(struct wpa_supplicant *wpa_s,
 		for (i = 0; i < wpa_s->hw.modes[j].num_channels; i++) {
 			if (chnl[i].flag & HOSTAPD_CHAN_DISABLED)
 				continue;
-			ret = os_snprintf(pos, end - pos, " %d = %d MHz%s%s\n",
-					  chnl[i].chan, chnl[i].freq,
+			ret = os_snprintf(pos, end - pos, " %d = %g MHz%s%s\n",
+					  chnl[i].chan, PR_KHZ(chnl[i].freq),
 					  chnl[i].flag & HOSTAPD_CHAN_NO_IR ?
 					  " (NO_IR)" : "",
 					  chnl[i].flag & HOSTAPD_CHAN_RADAR ?
@@ -4999,7 +5003,7 @@ static int print_bss_info(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
 	}
 
 	if (mask & WPA_BSS_MASK_FREQ) {
-		ret = os_snprintf(pos, end - pos, "freq=%d\n", bss->freq);
+		ret = os_snprintf(pos, end - pos, "freq=%g\n", PR_KHZ(bss->freq));
 		if (os_snprintf_error(end - pos, ret))
 			return 0;
 		pos += ret;
@@ -5750,7 +5754,7 @@ static int p2p_ctrl_find(struct wpa_supplicant *wpa_s, char *cmd)
 	pos = os_strstr(cmd, "freq=");
 	if (pos) {
 		pos += 5;
-		freq = atoi(pos);
+		freq = KHZ(atof(pos));
 		if (freq <= 0)
 			return -1;
 	}
@@ -6088,14 +6092,14 @@ static int p2p_ctrl_connect(struct wpa_supplicant *wpa_s, char *cmd,
 	pos2 = os_strstr(pos, " freq=");
 	if (pos2) {
 		pos2 += 6;
-		freq = atoi(pos2);
+		freq = KHZ(atof(pos2));
 		if (freq <= 0)
 			return -1;
 	}
 
 	pos2 = os_strstr(pos, " freq2=");
 	if (pos2)
-		freq2 = atoi(pos2 + 7);
+		freq2 = KHZ(atof(pos2 + 7));
 
 	pos2 = os_strstr(pos, " max_oper_chwidth=");
 	if (pos2)
@@ -6724,7 +6728,7 @@ static int p2p_ctrl_invite_persistent(struct wpa_supplicant *wpa_s, char *cmd)
 	pos = os_strstr(cmd, " freq=");
 	if (pos) {
 		pos += 6;
-		freq = atoi(pos);
+		freq = KHZ(atof(pos));
 		if (freq <= 0)
 			return -1;
 	}
@@ -6732,7 +6736,7 @@ static int p2p_ctrl_invite_persistent(struct wpa_supplicant *wpa_s, char *cmd)
 	pos = os_strstr(cmd, " pref=");
 	if (pos) {
 		pos += 6;
-		pref_freq = atoi(pos);
+		pref_freq = KHZ(atof(pos));
 		if (pref_freq <= 0)
 			return -1;
 	}
@@ -6745,7 +6749,7 @@ static int p2p_ctrl_invite_persistent(struct wpa_supplicant *wpa_s, char *cmd)
 
 	pos = os_strstr(cmd, "freq2=");
 	if (pos)
-		freq2 = atoi(pos + 6);
+		freq2 = KHZ(atof(pos + 6));
 
 	pos = os_strstr(cmd, " max_oper_chwidth=");
 	if (pos)
@@ -6826,19 +6830,20 @@ static int p2p_ctrl_group_add_persistent(struct wpa_supplicant *wpa_s,
 
 static int p2p_ctrl_group_add(struct wpa_supplicant *wpa_s, char *cmd)
 {
-	int freq = 0, persistent = 0, group_id = -1;
+	float freq = 0, freq2 = 0;
+	int persistent = 0, group_id = -1;
 	int vht = wpa_s->conf->p2p_go_vht;
 	int ht40 = wpa_s->conf->p2p_go_ht40 || vht;
 	int he = wpa_s->conf->p2p_go_he;
 	int edmg = wpa_s->conf->p2p_go_edmg;
-	int max_oper_chwidth, chwidth = 0, freq2 = 0;
+	int max_oper_chwidth, chwidth = 0;
 	char *token, *context = NULL;
 #ifdef CONFIG_ACS
 	int acs = 0;
 #endif /* CONFIG_ACS */
 
 	while ((token = str_token(cmd, " ", &context))) {
-		if (sscanf(token, "freq2=%d", &freq2) == 1 ||
+		if (sscanf(token, "freq2=%f", &freq2) == 1 ||
 		    sscanf(token, "persistent=%d", &group_id) == 1 ||
 		    sscanf(token, "max_oper_chwidth=%d", &chwidth) == 1) {
 			continue;
@@ -6846,7 +6851,7 @@ static int p2p_ctrl_group_add(struct wpa_supplicant *wpa_s, char *cmd)
 		} else if (os_strcmp(token, "freq=acs") == 0) {
 			acs = 1;
 #endif /* CONFIG_ACS */
-		} else if (sscanf(token, "freq=%d", &freq) == 1) {
+		} else if (sscanf(token, "freq=%f", &freq) == 1) {
 			continue;
 		} else if (os_strcmp(token, "ht40") == 0) {
 			ht40 = 1;
@@ -6886,6 +6891,10 @@ static int p2p_ctrl_group_add(struct wpa_supplicant *wpa_s, char *cmd)
 		wpa_s->p2p_go_do_acs = 0;
 	}
 #endif /* CONFIG_ACS */
+
+	freq2 = KHZ(freq2);
+	if (freq != 2 && freq != 5)
+		freq = KHZ(freq);
 
 	max_oper_chwidth = parse_freq(chwidth, freq2);
 	if (max_oper_chwidth < 0)
@@ -7071,8 +7080,8 @@ static int p2p_ctrl_disallow_freq(struct wpa_supplicant *wpa_s,
 	for (i = 0; i < wpa_s->global->p2p_disallow_freq.num; i++) {
 		struct wpa_freq_range *freq;
 		freq = &wpa_s->global->p2p_disallow_freq.range[i];
-		wpa_printf(MSG_DEBUG, "P2P: Disallowed frequency range %u-%u",
-			   freq->min, freq->max);
+		wpa_printf(MSG_DEBUG, "P2P: Disallowed frequency range %g-%g",
+			   PR_KHZ(freq->min), PR_KHZ(freq->max));
 	}
 
 	wpas_p2p_update_channel_list(wpa_s, WPAS_P2P_CHANNEL_UPDATE_DISALLOW);
@@ -7396,15 +7405,17 @@ static int p2p_ctrl_remove_client(struct wpa_supplicant *wpa_s, const char *cmd)
 
 static int p2p_ctrl_iface_p2p_lo_start(struct wpa_supplicant *wpa_s, char *cmd)
 {
-	int freq = 0, period = 0, interval = 0, count = 0;
+	float freq = 0;
+	int period = 0, interval = 0, count = 0;
 
-	if (sscanf(cmd, "%d %d %d %d", &freq, &period, &interval, &count) != 4)
+	if (sscanf(cmd, "%f %d %d %d", &freq, &period, &interval, &count) != 4)
 	{
 		wpa_printf(MSG_DEBUG,
 			   "CTRL: Invalid P2P LO Start parameter: '%s'", cmd);
 		return -1;
 	}
 
+	freq = KHZ(freq);
 	return wpas_p2p_lo_start(wpa_s, freq, period, interval, count);
 }
 
@@ -8034,9 +8045,9 @@ static int wpa_supplicant_signal_poll(struct wpa_supplicant *wpa_s, char *buf,
 	end = buf + buflen;
 
 	ret = os_snprintf(pos, end - pos, "RSSI=%d\nLINKSPEED=%d\n"
-			  "NOISE=%d\nFREQUENCY=%u\n",
+			  "NOISE=%d\nFREQUENCY=%g\n",
 			  si.current_signal, si.current_txrate / 1000,
-			  si.current_noise, si.frequency);
+			  si.current_noise, PR_KHZ(si.frequency));
 	if (os_snprintf_error(end - pos, ret))
 		return -1;
 	pos += ret;
@@ -8050,16 +8061,16 @@ static int wpa_supplicant_signal_poll(struct wpa_supplicant *wpa_s, char *buf,
 	}
 
 	if (si.center_frq1 > 0) {
-		ret = os_snprintf(pos, end - pos, "CENTER_FRQ1=%d\n",
-				  si.center_frq1);
+		ret = os_snprintf(pos, end - pos, "CENTER_FRQ1=%g\n",
+				  PR_KHZ(si.center_frq1));
 		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 
 	if (si.center_frq2 > 0) {
-		ret = os_snprintf(pos, end - pos, "CENTER_FRQ2=%d\n",
-				  si.center_frq2);
+		ret = os_snprintf(pos, end - pos, "CENTER_FRQ2=%g\n",
+				  PR_KHZ(si.center_frq2));
 		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
@@ -8135,7 +8146,7 @@ int wpas_ctrl_iface_get_pref_freq_list_override(struct wpa_supplicant *wpa_s,
 	pos++;
 	end = os_strchr(pos, ' ');
 	while (pos && (!end || pos < end) && count < *num) {
-		freq_list[count++] = atoi(pos);
+		freq_list[count++] = KHZ(atof(pos));
 		pos = os_strchr(pos, ',');
 		if (pos)
 			pos++;
@@ -8183,8 +8194,8 @@ static int wpas_ctrl_iface_get_pref_freq_list(
 		return -1;
 
 	for (i = 0; i < num; i++) {
-		ret = os_snprintf(pos, end - pos, "%s%u",
-				  i > 0 ? "," : "", freq_list[i]);
+		ret = os_snprintf(pos, end - pos, "%s%g",
+				  i > 0 ? "," : "", PR_KHZ(freq_list[i]));
 		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
@@ -8604,9 +8615,10 @@ static int wpas_ctrl_radio_work_show(struct wpa_supplicant *wpa_s,
 		int ret;
 
 		os_reltime_sub(&now, &work->time, &diff);
-		ret = os_snprintf(pos, end - pos, "%s@%s:%u:%u:%ld.%06ld\n",
-				  work->type, work->wpa_s->ifname, work->freq,
-				  work->started, diff.sec, diff.usec);
+		ret = os_snprintf(pos, end - pos, "%s@%s:%g:%u:%ld.%06ld\n",
+				  work->type, work->wpa_s->ifname,
+				  PR_KHZ(work->freq), work->started, diff.sec,
+				  diff.usec);
 		if (os_snprintf_error(end - pos, ret))
 			break;
 		pos += ret;
@@ -8684,7 +8696,7 @@ static int wpas_ctrl_radio_work_add(struct wpa_supplicant *wpa_s, char *cmd,
 
 		pos2 = os_strstr(pos, "freq=");
 		if (pos2)
-			freq = atoi(pos2 + 5);
+			freq = KHZ(atof(pos2 + 5));
 
 		pos2 = os_strstr(pos, "timeout=");
 		if (pos2)
@@ -9026,9 +9038,9 @@ static void wpas_ctrl_iface_mgmt_tx_cb(struct wpa_supplicant *wpa_s,
 				       enum offchannel_send_action_result
 				       result)
 {
-	wpa_msg(wpa_s, MSG_INFO, "MGMT-TX-STATUS freq=%u dst=" MACSTR
+	wpa_msg(wpa_s, MSG_INFO, "MGMT-TX-STATUS freq=%g dst=" MACSTR
 		" src=" MACSTR " bssid=" MACSTR " result=%s",
-		freq, MAC2STR(dst), MAC2STR(src), MAC2STR(bssid),
+		PR_KHZ(freq), MAC2STR(dst), MAC2STR(src), MAC2STR(bssid),
 		result == OFFCHANNEL_SEND_ACTION_SUCCESS ?
 		"SUCCESS" : (result == OFFCHANNEL_SEND_ACTION_NO_ACK ?
 			     "NO_ACK" : "FAILED"));
@@ -9063,7 +9075,7 @@ static int wpas_ctrl_iface_mgmt_tx(struct wpa_supplicant *wpa_s, char *cmd)
 	param = os_strstr(pos, " freq=");
 	if (param) {
 		param += 6;
-		freq = atoi(param);
+		freq = KHZ(atof(param));
 	}
 
 	param = os_strstr(pos, " no_cck=");
@@ -9132,7 +9144,7 @@ static int wpas_ctrl_iface_mgmt_rx_process(struct wpa_supplicant *wpa_s,
 	param = os_strstr(pos, "freq=");
 	if (param) {
 		param += 5;
-		freq = atoi(param);
+		freq = KHZ(atof(param));
 	}
 
 	param = os_strstr(pos, " datarate=");
@@ -9221,7 +9233,7 @@ static int wpas_ctrl_iface_driver_scan_res(struct wpa_supplicant *wpa_s,
 
 	pos = os_strstr(param, " freq=");
 	if (pos)
-		res->freq = atoi(pos + 6);
+		res->freq = KHZ(atof(pos + 6));
 
 	pos = os_strstr(param, " beacon_int=");
 	if (pos)

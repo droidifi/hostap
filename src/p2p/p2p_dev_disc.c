@@ -165,7 +165,7 @@ void p2p_process_dev_disc_req(struct p2p_data *p2p, const u8 *sa,
 	size_t g;
 
 	p2p_dbg(p2p, "Received Device Discoverability Request from " MACSTR
-		" (freq=%d)", MAC2STR(sa), rx_freq);
+		" (freq=%g)", MAC2STR(sa), PR_KHZ(rx_freq));
 
 	if (p2p_parse(data, len, &msg))
 		return;

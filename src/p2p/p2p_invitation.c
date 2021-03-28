@@ -188,8 +188,8 @@ void p2p_process_invitation_req(struct p2p_data *p2p, const u8 *sa,
 
 	os_memset(group_bssid, 0, sizeof(group_bssid));
 
-	p2p_dbg(p2p, "Received Invitation Request from " MACSTR " (freq=%d)",
-		MAC2STR(sa), rx_freq);
+	p2p_dbg(p2p, "Received Invitation Request from " MACSTR " (freq=%g)",
+		MAC2STR(sa), PR_KHZ(rx_freq));
 
 	if (p2p_parse(data, len, &msg))
 		return;
@@ -653,8 +653,8 @@ int p2p_invite(struct p2p_data *p2p, const u8 *peer, enum p2p_invite_role role,
 	struct p2p_device *dev;
 
 	p2p_dbg(p2p, "Request to invite peer " MACSTR " role=%d persistent=%d "
-		"force_freq=%u",
-		MAC2STR(peer), role, persistent_group, force_freq);
+		"force_freq=%g",
+		MAC2STR(peer), role, persistent_group, PR_KHZ(force_freq));
 	if (bssid)
 		p2p_dbg(p2p, "Invitation for BSSID " MACSTR, MAC2STR(bssid));
 	if (go_dev_addr) {

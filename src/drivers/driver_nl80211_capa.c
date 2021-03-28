@@ -1549,7 +1549,7 @@ static void phy_info_freq(struct hostapd_hw_modes *mode,
 	u8 channel;
 
 	os_memset(chan, 0, sizeof(*chan));
-	chan->freq = nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
+	chan->freq = KHZ(nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]));
 	chan->flag = 0;
 	chan->allowed_bw = ~0;
 	chan->dfs_cac_ms = 0;
@@ -1561,8 +1561,8 @@ static void phy_info_freq(struct hostapd_hw_modes *mode,
 		chan->chan = channel;
 	else
 		wpa_printf(MSG_DEBUG,
-			   "nl80211: No channel number found for frequency %u MHz",
-			   chan->freq);
+			   "nl80211: No channel number found for frequency %g MHz",
+			   PR_KHZ(chan->freq));
 
 	if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED])
 		chan->flag |= HOSTAPD_CHAN_DISABLED;
@@ -1993,13 +1993,13 @@ wpa_driver_nl80211_postprocess_modes(struct hostapd_hw_modes *modes,
 		if (!modes[m].num_channels)
 			continue;
 
-		if (modes[m].channels[0].freq < 1000) {
+		if (modes[m].channels[0].freq < KHZ(1000)) {
 			modes[m].mode = HOSTAPD_MODE_IEEE80211AH;
 		}
-		else if (modes[m].channels[0].freq < 2000) {
+		else if (modes[m].channels[0].freq < KHZ(2000)) {
 			modes[m].num_channels = 0;
 			continue;
-		} else if (modes[m].channels[0].freq < 4000) {
+		} else if (modes[m].channels[0].freq < KHZ(4000)) {
 			modes[m].mode = HOSTAPD_MODE_IEEE80211B;
 			for (i = 0; i < modes[m].num_rates; i++) {
 				if (modes[m].rates[i] > 200) {
@@ -2007,7 +2007,7 @@ wpa_driver_nl80211_postprocess_modes(struct hostapd_hw_modes *modes,
 					break;
 				}
 			}
-		} else if (modes[m].channels[0].freq > 50000)
+		} else if (modes[m].channels[0].freq > KHZ(50000))
 			modes[m].mode = HOSTAPD_MODE_IEEE80211AD;
 		else
 			modes[m].mode = HOSTAPD_MODE_IEEE80211A;
@@ -2104,7 +2104,8 @@ static void nl80211_set_ht40_mode(struct hostapd_hw_modes *mode, int start,
 
 	for (c = 0; c < mode->num_channels; c++) {
 		struct hostapd_channel_data *chan = &mode->channels[c];
-		if (chan->freq - 10 >= start && chan->freq + 10 <= end)
+		if (chan->freq - KHZ(10) >= start &&
+		    chan->freq + KHZ(10) <= end)
 			chan->flag |= HOSTAPD_CHAN_HT40;
 	}
 }
@@ -2119,9 +2120,11 @@ static void nl80211_set_ht40_mode_sec(struct hostapd_hw_modes *mode, int start,
 		struct hostapd_channel_data *chan = &mode->channels[c];
 		if (!(chan->flag & HOSTAPD_CHAN_HT40))
 			continue;
-		if (chan->freq - 30 >= start && chan->freq - 10 <= end)
+		if (chan->freq - KHZ(30) >= start &&
+		    chan->freq - KHZ(10) <= end)
 			chan->flag |= HOSTAPD_CHAN_HT40MINUS;
-		if (chan->freq + 10 >= start && chan->freq + 30 <= end)
+		if (chan->freq + KHZ(10) >= start &&
+		    chan->freq + KHZ(30) <= end)
 			chan->flag |= HOSTAPD_CHAN_HT40PLUS;
 	}
 }
@@ -2138,14 +2141,14 @@ static void nl80211_reg_rule_max_eirp(u32 start, u32 end, u32 max_eirp,
 
 		for (c = 0; c < mode->num_channels; c++) {
 			struct hostapd_channel_data *chan = &mode->channels[c];
-			if ((u32) chan->freq - 10 >= start &&
-			    (u32) chan->freq + 10 <= end && 
-                chan->freq >= 1000)
+			if ((u32) chan->freq - KHZ(10) >= start &&
+			    (u32) chan->freq + KHZ(10) <= end && 
+                chan->freq >= KHZ(1000))
 				chan->max_tx_power = max_eirp;
             // 802.11ah sub-1GHz
             else if ((u32) chan->freq >= start &&
-			    (u32) chan->freq + 1 <= end &&
-			    chan->freq < 1000)
+			    (u32) chan->freq + KHZ(1) <= end &&
+			    chan->freq < KHZ(1000))
                 chan->max_tx_power = max_eirp;
 		}
 	}
@@ -2177,8 +2180,8 @@ static void nl80211_reg_rule_sec(struct nlattr *tb[],
 	    tb[NL80211_ATTR_FREQ_RANGE_MAX_BW] == NULL)
 		return;
 
-	start = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_START]) / 1000;
-	end = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_END]) / 1000;
+	start = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_START]);
+	end = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_END]);
 	max_bw = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_MAX_BW]) / 1000;
 
 	if (max_bw < 20)
@@ -2200,41 +2203,53 @@ static void nl80211_set_vht_mode(struct hostapd_hw_modes *mode, int start,
 
 	for (c = 0; c < mode->num_channels; c++) {
 		struct hostapd_channel_data *chan = &mode->channels[c];
-		if (chan->freq - 10 >= start && chan->freq + 70 <= end)
+		if (chan->freq - KHZ(10) >= start &&
+		    chan->freq + KHZ(70) <= end)
 			chan->flag |= HOSTAPD_CHAN_VHT_10_70;
 
-		if (chan->freq - 30 >= start && chan->freq + 50 <= end)
+		if (chan->freq - KHZ(30) >= start &&
+		    chan->freq + KHZ(50) <= end)
 			chan->flag |= HOSTAPD_CHAN_VHT_30_50;
 
-		if (chan->freq - 50 >= start && chan->freq + 30 <= end)
+		if (chan->freq - KHZ(50) >= start &&
+		    chan->freq + KHZ(30) <= end)
 			chan->flag |= HOSTAPD_CHAN_VHT_50_30;
 
-		if (chan->freq - 70 >= start && chan->freq + 10 <= end)
+		if (chan->freq - KHZ(70) >= start &&
+		    chan->freq + KHZ(10) <= end)
 			chan->flag |= HOSTAPD_CHAN_VHT_70_10;
 
 		if (max_bw >= 160) {
-			if (chan->freq - 10 >= start && chan->freq + 150 <= end)
+			if (chan->freq - KHZ(10) >= start &&
+			    chan->freq + KHZ(150) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_10_150;
 
-			if (chan->freq - 30 >= start && chan->freq + 130 <= end)
+			if (chan->freq - KHZ(30) >= start &&
+			    chan->freq + KHZ(130) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_30_130;
 
-			if (chan->freq - 50 >= start && chan->freq + 110 <= end)
+			if (chan->freq - KHZ(50) >= start &&
+			    chan->freq + KHZ(110) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_50_110;
 
-			if (chan->freq - 70 >= start && chan->freq + 90 <= end)
+			if (chan->freq - KHZ(70) >= start &&
+			    chan->freq + KHZ(90) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_70_90;
 
-			if (chan->freq - 90 >= start && chan->freq + 70 <= end)
+			if (chan->freq - KHZ(90) >= start &&
+			    chan->freq + KHZ(70) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_90_70;
 
-			if (chan->freq - 110 >= start && chan->freq + 50 <= end)
+			if (chan->freq - KHZ(110) >= start &&
+			    chan->freq + KHZ(50) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_110_50;
 
-			if (chan->freq - 130 >= start && chan->freq + 30 <= end)
+			if (chan->freq - KHZ(130) >= start &&
+			    chan->freq + KHZ(30) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_130_30;
 
-			if (chan->freq - 150 >= start && chan->freq + 10 <= end)
+			if (chan->freq - KHZ(150) >= start &&
+			    chan->freq + KHZ(10) <= end)
 				chan->flag |= HOSTAPD_CHAN_VHT_150_10;
 		}
 	}
@@ -2252,8 +2267,8 @@ static void nl80211_reg_rule_vht(struct nlattr *tb[],
 	    tb[NL80211_ATTR_FREQ_RANGE_MAX_BW] == NULL)
 		return;
 
-	start = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_START]) / 1000;
-	end = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_END]) / 1000;
+	start = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_START]);
+	end = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_END]);
 	max_bw = nla_get_u32(tb[NL80211_ATTR_FREQ_RANGE_MAX_BW]) / 1000;
 
 	if (max_bw < 80)
@@ -2349,8 +2364,8 @@ static int nl80211_get_reg(struct nl_msg *msg, void *arg)
 		if (tb_rule[NL80211_ATTR_FREQ_RANGE_START] == NULL ||
 		    tb_rule[NL80211_ATTR_FREQ_RANGE_END] == NULL)
 			continue;
-		start = nla_get_u32(tb_rule[NL80211_ATTR_FREQ_RANGE_START]) / 1000;
-		end = nla_get_u32(tb_rule[NL80211_ATTR_FREQ_RANGE_END]) / 1000;
+		start = nla_get_u32(tb_rule[NL80211_ATTR_FREQ_RANGE_START]);
+		end = nla_get_u32(tb_rule[NL80211_ATTR_FREQ_RANGE_END]);
 		if (tb_rule[NL80211_ATTR_POWER_RULE_MAX_EIRP])
 			max_eirp = nla_get_u32(tb_rule[NL80211_ATTR_POWER_RULE_MAX_EIRP]) / 100;
 		if (tb_rule[NL80211_ATTR_FREQ_RANGE_MAX_BW])
@@ -2358,8 +2373,8 @@ static int nl80211_get_reg(struct nl_msg *msg, void *arg)
 		if (tb_rule[NL80211_ATTR_REG_RULE_FLAGS])
 			flags = nla_get_u32(tb_rule[NL80211_ATTR_REG_RULE_FLAGS]);
 
-		wpa_printf(MSG_DEBUG, "nl80211: %u-%u @ %u MHz %u mBm%s%s%s%s%s%s%s%s",
-			   start, end, max_bw, max_eirp,
+		wpa_printf(MSG_DEBUG, "nl80211: %g-%g @ %u MHz %u mBm%s%s%s%s%s%s%s%s",
+			   PR_KHZ(start), PR_KHZ(end), max_bw, max_eirp,
 			   flags & NL80211_RRF_NO_OFDM ? " (no OFDM)" : "",
 			   flags & NL80211_RRF_NO_CCK ? " (no CCK)" : "",
 			   flags & NL80211_RRF_NO_INDOOR ? " (no indoor)" : "",
@@ -2453,8 +2468,8 @@ static void nl80211_dump_chan_list(struct hostapd_hw_modes *modes,
 		for (j = 0; j < mode->num_channels; j++) {
 			struct hostapd_channel_data *chan = &mode->channels[j];
 
-			res = os_snprintf(pos, end - pos, " %d%s%s%s",
-					  chan->freq,
+			res = os_snprintf(pos, end - pos, " %g%s%s%s",
+					  PR_KHZ(chan->freq),
 					  (chan->flag & HOSTAPD_CHAN_DISABLED) ?
 					  "[DISABLED]" : "",
 					  (chan->flag & HOSTAPD_CHAN_NO_IR) ?

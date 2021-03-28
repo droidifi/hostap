@@ -132,10 +132,10 @@ int hostapd_get_hw_features(struct hostapd_iface *iface)
 				continue;
 
 			wpa_printf(MSG_MSGDUMP, "Allowed channel: mode=%d "
-				   "chan=%d freq=%d MHz max_tx_power=%d dBm%s",
+				   "chan=%d freq=%g MHz max_tx_power=%d dBm%s",
 				   feature->mode,
 				   feature->channels[j].chan,
-				   feature->channels[j].freq,
+				   PR_KHZ(feature->channels[j].freq),
 				   feature->channels[j].max_tx_power,
 				   dfs ? dfs_info(&feature->channels[j]) : "");
 		}
@@ -234,7 +234,7 @@ static int ieee80211n_allowed_ht40_channel_pair(struct hostapd_iface *iface)
 	struct hostapd_channel_data *p_chan, *s_chan;
 
 	pri_freq = iface->freq;
-	sec_freq = pri_freq + iface->conf->secondary_channel * 20;
+	sec_freq = pri_freq + KHZ(iface->conf->secondary_channel * 20);
 
 	if (!iface->current_mode)
 		return 0;
@@ -256,11 +256,11 @@ static void ieee80211n_switch_pri_sec(struct hostapd_iface *iface)
 {
 	if (iface->conf->secondary_channel > 0) {
 		iface->conf->channel += 4;
-		iface->freq += 20;
+		iface->freq += KHZ(20);
 		iface->conf->secondary_channel = -1;
 	} else {
 		iface->conf->channel -= 4;
-		iface->freq -= 20;
+		iface->freq -= KHZ(20);
 		iface->conf->secondary_channel = 1;
 	}
 }
@@ -274,7 +274,7 @@ static int ieee80211n_check_40mhz_5g(struct hostapd_iface *iface,
 	struct hostapd_channel_data *pri_chan, *sec_chan;
 
 	pri_freq = iface->freq;
-	sec_freq = pri_freq + iface->conf->secondary_channel * 20;
+	sec_freq = pri_freq + KHZ(iface->conf->secondary_channel * 20);
 
 	if (!iface->current_mode)
 		return 0;
@@ -398,19 +398,19 @@ static void ieee80211n_scan_channels_2g4(struct hostapd_iface *iface,
 
 	pri_freq = iface->freq;
 	if (iface->conf->secondary_channel > 0)
-		sec_freq = pri_freq + 20;
+		sec_freq = pri_freq + KHZ(20);
 	else
-		sec_freq = pri_freq - 20;
+		sec_freq = pri_freq - KHZ(20);
     
 	/*
 	 * Note: Need to find the PRI channel also in cases where the affected
 	 * channel is the SEC channel of a 40 MHz BSS, so need to include the
 	 * scanning coverage here to be 40 MHz from the center frequency.
 	 */
-	affected_start = (pri_freq + sec_freq) / 2 - 40;
-	affected_end = (pri_freq + sec_freq) / 2 + 40;
-	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%d,%d] MHz",
-		   affected_start, affected_end);
+	affected_start = (pri_freq + sec_freq) / 2 - KHZ(40);
+	affected_end = (pri_freq + sec_freq) / 2 + KHZ(40);
+	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%g,%g] MHz",
+		   PR_KHZ(affected_start), PR_KHZ(affected_end));
 
 	mode = iface->current_mode;
 	params->freqs = os_calloc(mode->num_channels + 1, sizeof(int));
@@ -445,14 +445,14 @@ static void ieee80211n_scan_channels_5g(struct hostapd_iface *iface,
 
 	pri_freq = iface->freq;
 	if (iface->conf->secondary_channel > 0) {
-		affected_start = pri_freq - 10;
-		affected_end = pri_freq + 30;
+		affected_start = pri_freq - KHZ(10);
+		affected_end = pri_freq + KHZ(30);
 	} else {
-		affected_start = pri_freq - 30;
-		affected_end = pri_freq + 10;
+		affected_start = pri_freq - KHZ(30);
+		affected_end = pri_freq + KHZ(10);
 	}
-	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%d,%d] MHz",
-		   affected_start, affected_end);
+	wpa_printf(MSG_DEBUG, "40 MHz affected channel range: [%g,%g] MHz",
+		   PR_KHZ(affected_start), PR_KHZ(affected_end));
 
 	mode = iface->current_mode;
 	params->freqs = os_calloc(mode->num_channels + 1, sizeof(int));
@@ -818,8 +818,8 @@ static int hostapd_is_usable_chan(struct hostapd_iface *iface,
 		return 1;
 
 	wpa_printf(MSG_INFO,
-		   "Frequency %d (%s) not allowed for AP mode, flags: 0x%x%s%s",
-		   frequency, primary ? "primary" : "secondary",
+		   "Frequency %g (%s) not allowed for AP mode, flags: 0x%x%s%s",
+		   PR_KHZ(frequency), primary ? "primary" : "secondary",
 		   chan->flag,
 		   chan->flag & HOSTAPD_CHAN_NO_IR ? " NO-IR" : "",
 		   chan->flag & HOSTAPD_CHAN_RADAR ? " RADAR" : "");
@@ -923,20 +923,21 @@ static int hostapd_is_usable_chans(struct hostapd_iface *iface)
 		return 1;
 
 	if (hostapd_is_usable_chan(iface, iface->freq +
-				   iface->conf->secondary_channel * 20, 0))
+				   KHZ(iface->conf->secondary_channel * 20),
+				   0))
 		return 1;
 	if (!iface->conf->ht40_plus_minus_allowed)
 		return 0;
 
 	/* Both HT40+ and HT40- are set, pick a valid secondary channel */
-	secondary_freq = iface->freq + 20;
+	secondary_freq = iface->freq + KHZ(20);
 	if (hostapd_is_usable_chan(iface, secondary_freq, 0) &&
 	    (pri_chan->allowed_bw & HOSTAPD_CHAN_WIDTH_40P)) {
 		iface->conf->secondary_channel = 1;
 		return 1;
 	}
 
-	secondary_freq = iface->freq - 20;
+	secondary_freq = iface->freq - KHZ(20);
 	if (hostapd_is_usable_chan(iface, secondary_freq, 0) &&
 	    (pri_chan->allowed_bw & HOSTAPD_CHAN_WIDTH_40M)) {
 		iface->conf->secondary_channel = -1;
@@ -949,16 +950,16 @@ static int hostapd_is_usable_chans(struct hostapd_iface *iface)
 
 static void hostapd_determine_mode(struct hostapd_iface *iface)
 {
-	int i;
+	int i, freq = MHZ(iface->freq);
 	enum hostapd_hw_mode target_mode;
 
 	if (iface->current_mode ||
 	    iface->conf->hw_mode != HOSTAPD_MODE_IEEE80211ANY)
 		return;
 
-	if (iface->freq < 4000)
+	if (freq < 4000)
 		target_mode = HOSTAPD_MODE_IEEE80211G;
-	else if (iface->freq > 50000)
+	else if (freq > 50000)
 		target_mode = HOSTAPD_MODE_IEEE80211AD;
 	else
 		target_mode = HOSTAPD_MODE_IEEE80211A;
@@ -1038,8 +1039,8 @@ int hostapd_acs_completed(struct hostapd_iface *iface, int err)
 	switch (hostapd_check_chans(iface)) {
 	case HOSTAPD_CHAN_VALID:
 		wpa_msg(iface->bss[0]->msg_ctx, MSG_INFO,
-			ACS_EVENT_COMPLETED "freq=%d channel=%d",
-			iface->freq, iface->conf->channel);
+			ACS_EVENT_COMPLETED "freq=%g channel=%d",
+			PR_KHZ(iface->freq), iface->conf->channel);
 		break;
 	case HOSTAPD_CHAN_ACS:
 		wpa_printf(MSG_ERROR, "ACS error - reported complete, but no result available");

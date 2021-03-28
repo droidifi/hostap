@@ -863,7 +863,7 @@ static int hostapd_parse_chanlist(struct hostapd_config *conf, char *val)
 		if (pos)
 			*pos++ = ',';
 	}
-	if (freq_range_list_parse(&conf->acs_ch_list, val))
+	if (int_range_list_parse(&conf->acs_ch_list, val))
 		return -1;
 
 	return 0;
@@ -4250,19 +4250,19 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "ft_rsnxe_used") == 0) {
 		bss->ft_rsnxe_used = atoi(pos);
 	} else if (os_strcmp(buf, "oci_freq_override_eapol_m3") == 0) {
-		bss->oci_freq_override_eapol_m3 = atoi(pos);
+		bss->oci_freq_override_eapol_m3 = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_eapol_g1") == 0) {
-		bss->oci_freq_override_eapol_g1 = atoi(pos);
+		bss->oci_freq_override_eapol_g1 = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_saquery_req") == 0) {
-		bss->oci_freq_override_saquery_req = atoi(pos);
+		bss->oci_freq_override_saquery_req = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_saquery_resp") == 0) {
-		bss->oci_freq_override_saquery_resp = atoi(pos);
+		bss->oci_freq_override_saquery_resp = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_ft_assoc") == 0) {
-		bss->oci_freq_override_ft_assoc = atoi(pos);
+		bss->oci_freq_override_ft_assoc = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_fils_assoc") == 0) {
-		bss->oci_freq_override_fils_assoc = atoi(pos);
+		bss->oci_freq_override_fils_assoc = KHZ(atof(pos));
 	} else if (os_strcmp(buf, "oci_freq_override_wnm_sleep") == 0) {
-		bss->oci_freq_override_wnm_sleep = atoi(pos);
+		bss->oci_freq_override_wnm_sleep = KHZ(atof(pos));
 #endif /* CONFIG_TESTING_OPTIONS */
 #ifdef CONFIG_SAE
 	} else if (os_strcmp(buf, "sae_password") == 0) {

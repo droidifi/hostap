@@ -2649,11 +2649,11 @@ skip_ht40:
 				break;
 		}
 	} else if (ssid->max_oper_chwidth == CHANWIDTH_160MHZ) {
-		if (freq->freq == 5180) {
+		if (freq->freq == KHZ(5180)) {
 			chwidth = CHANWIDTH_160MHZ;
 			vht_caps |= VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
 			seg0 = 50;
-		} else if (freq->freq == 5520) {
+		} else if (freq->freq == KHZ(5520)) {
 			chwidth = CHANWIDTH_160MHZ;
 			vht_caps |= VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
 			seg0 = 114;
@@ -2684,8 +2684,9 @@ skip_ht40:
 
 	*freq = vht_freq;
 
-	wpa_printf(MSG_DEBUG, "IBSS: VHT setup freq cf1 %d, cf2 %d, bw %d",
-		   freq->center_freq1, freq->center_freq2, freq->bandwidth);
+	wpa_printf(MSG_DEBUG, "IBSS: VHT setup freq cf1 %g, cf2 %g, bw %d",
+		   PR_KHZ(freq->center_freq1), PR_KHZ(freq->center_freq2),
+		   freq->bandwidth);
 }
 
 
@@ -3532,8 +3533,9 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 		const u8 *ie, *md = NULL;
 #endif /* CONFIG_IEEE80211R */
 		wpa_msg(wpa_s, MSG_INFO, "Trying to associate with " MACSTR
-			" (SSID='%s' freq=%d MHz)", MAC2STR(bss->bssid),
-			wpa_ssid_txt(bss->ssid, bss->ssid_len), bss->freq);
+			" (SSID='%s' freq=%g MHz)", MAC2STR(bss->bssid),
+			wpa_ssid_txt(bss->ssid, bss->ssid_len),
+			PR_KHZ(bss->freq));
 		bssid_changed = !is_zero_ether_addr(wpa_s->bssid);
 		os_memset(wpa_s->bssid, 0, ETH_ALEN);
 		os_memcpy(wpa_s->pending_bssid, bss->bssid, ETH_ALEN);
@@ -3622,9 +3624,9 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 		if (!wpas_driver_bss_selection(wpa_s) || ssid->bssid_set ||
 		    wpa_s->key_mgmt == WPA_KEY_MGMT_WPS) {
 			wpa_printf(MSG_DEBUG, "Limit connection to BSSID "
-				   MACSTR " freq=%u MHz based on scan results "
+				   MACSTR " freq=%g MHz based on scan results "
 				   "(bssid_set=%d wps=%d)",
-				   MAC2STR(bss->bssid), bss->freq,
+				   MAC2STR(bss->bssid), PR_KHZ(bss->freq),
 				   ssid->bssid_set,
 				   wpa_s->key_mgmt == WPA_KEY_MGMT_WPS);
 			params.bssid = bss->bssid;
@@ -5744,9 +5746,9 @@ static int wpas_set_wowlan_triggers(struct wpa_supplicant *wpa_s,
 
 enum wpa_radio_work_band wpas_freq_to_band(int freq)
 {
-	if (freq < 3000)
+	if (freq < KHZ(3000))
 		return BAND_2_4_GHZ;
-	if (freq > 50000)
+	if (freq > KHZ(50000))
 		return BAND_60_GHZ;
 	return BAND_5_GHZ;
 }
@@ -6287,9 +6289,9 @@ static void wpas_gas_server_tx_status(struct wpa_supplicant *wpa_s,
 				      const u8 *data, size_t data_len,
 				      enum offchannel_send_action_result result)
 {
-	wpa_printf(MSG_DEBUG, "GAS: TX status: freq=%u dst=" MACSTR
+	wpa_printf(MSG_DEBUG, "GAS: TX status: freq=%g dst=" MACSTR
 		   " result=%s",
-		   freq, MAC2STR(dst),
+		   PR_KHZ(freq), MAC2STR(dst),
 		   result == OFFCHANNEL_SEND_ACTION_SUCCESS ? "SUCCESS" :
 		   (result == OFFCHANNEL_SEND_ACTION_NO_ACK ? "no-ACK" :
 		    "FAILED"));
@@ -7924,8 +7926,8 @@ void dump_freq_data(struct wpa_supplicant *wpa_s, const char *title,
 		len, title);
 	for (i = 0; i < len; i++) {
 		struct wpa_used_freq_data *cur = &freqs_data[i];
-		wpa_dbg(wpa_s, MSG_DEBUG, "freq[%u]: %d, flags=0x%X",
-			i, cur->freq, cur->flags);
+		wpa_dbg(wpa_s, MSG_DEBUG, "freq[%d]: %g, flags=0x%X",
+			i, PR_KHZ(cur->freq), cur->flags);
 	}
 }
 

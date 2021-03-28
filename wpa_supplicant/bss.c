@@ -472,9 +472,9 @@ static struct wpa_bss * wpa_bss_add(struct wpa_supplicant *wpa_s,
 	else
 		extra[0] = '\0';
 	wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Add new id %u BSSID " MACSTR
-		" SSID '%s' freq %d%s",
+		" SSID '%s' freq %g%s",
 		bss->id, MAC2STR(bss->bssid), wpa_ssid_txt(ssid, ssid_len),
-		bss->freq, extra);
+		PR_KHZ(bss->freq), extra);
 	wpas_notify_bss_added(wpa_s, bss->bssid, bss->id);
 	return bss;
 }

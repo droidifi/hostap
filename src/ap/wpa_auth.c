@@ -2812,9 +2812,9 @@ static struct wpabuf * fils_prepare_plainbuf(struct wpa_state_machine *sm,
 #ifdef CONFIG_TESTING_OPTIONS
 		if (conf->oci_freq_override_fils_assoc) {
 			wpa_printf(MSG_INFO,
-				   "TEST: Override OCI frequency %d -> %u MHz",
-				   ci.frequency,
-				   conf->oci_freq_override_fils_assoc);
+				   "TEST: Override OCI frequency %g -> %g MHz",
+				   PR_KHZ(ci.frequency),
+				   PR_KHZ(conf->oci_freq_override_fils_assoc));
 			ci.frequency = conf->oci_freq_override_fils_assoc;
 		}
 #endif /* CONFIG_TESTING_OPTIONS */
@@ -3311,8 +3311,8 @@ static int ocv_oci_add(struct wpa_state_machine *sm, u8 **argpos,
 #ifdef CONFIG_TESTING_OPTIONS
 	if (freq) {
 		wpa_printf(MSG_INFO,
-			   "TEST: Override OCI KDE frequency %d -> %u MHz",
-			   ci.frequency, freq);
+			   "TEST: Override OCI KDE frequency %g -> %g MHz",
+			   PR_KHZ(ci.frequency), PR_KHZ(freq));
 		ci.frequency = freq;
 	}
 #endif /* CONFIG_TESTING_OPTIONS */

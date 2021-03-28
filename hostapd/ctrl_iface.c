@@ -1556,19 +1556,20 @@ static int hostapd_ctrl_iface_set(struct hostapd_data *hapd, char *cmd)
 		else if (os_strcmp(cmd, "oci_freq_override_eapol_m3") == 0)
 			wpa_auth_set_ocv_override_freq(
 				hapd->wpa_auth, WPA_AUTH_OCV_OVERRIDE_EAPOL_M3,
-				atoi(value));
+				KHZ(atof(value)));
 		else if (os_strcmp(cmd, "oci_freq_override_eapol_g1") == 0)
 			wpa_auth_set_ocv_override_freq(
 				hapd->wpa_auth, WPA_AUTH_OCV_OVERRIDE_EAPOL_G1,
-				atoi(value));
+				KHZ(atof(value)));
 		else if (os_strcmp(cmd, "oci_freq_override_ft_assoc") == 0)
 			wpa_auth_set_ocv_override_freq(
 				hapd->wpa_auth, WPA_AUTH_OCV_OVERRIDE_FT_ASSOC,
-				atoi(value));
+				KHZ(atof(value)));
 		else if (os_strcmp(cmd, "oci_freq_override_fils_assoc") == 0)
 			wpa_auth_set_ocv_override_freq(
 				hapd->wpa_auth,
-				WPA_AUTH_OCV_OVERRIDE_FILS_ASSOC, atoi(value));
+				WPA_AUTH_OCV_OVERRIDE_FILS_ASSOC,
+				KHZ(atof(value)));
 #endif /* CONFIG_TESTING_OPTIONS */
 	}
 
@@ -1719,7 +1720,7 @@ static int hostapd_ctrl_iface_radar(struct hostapd_data *hapd, char *cmd)
 
 	pos = os_strstr(param, "freq=");
 	if (pos)
-		data.dfs_event.freq = atoi(pos + 5);
+		data.dfs_event.freq = KHZ(atof(pos + 5));
 
 	pos = os_strstr(param, "ht_enabled=1");
 	if (pos)
@@ -1735,11 +1736,11 @@ static int hostapd_ctrl_iface_radar(struct hostapd_data *hapd, char *cmd)
 
 	pos = os_strstr(param, "cf1=");
 	if (pos)
-		data.dfs_event.cf1 = atoi(pos + 4);
+		data.dfs_event.cf1 = KHZ(atof(pos + 4));
 
 	pos = os_strstr(param, "cf2=");
 	if (pos)
-		data.dfs_event.cf2 = atoi(pos + 4);
+		data.dfs_event.cf2 = KHZ(atof(pos + 4));
 
 	wpa_supplicant_event(hapd, event, &data);
 
@@ -1856,7 +1857,7 @@ static int hostapd_ctrl_iface_mgmt_rx_process(struct hostapd_data *hapd,
 	param = os_strstr(pos, "freq=");
 	if (param) {
 		param += 5;
-		freq = atoi(param);
+		freq = KHZ(atof(param));
 	}
 
 	param = os_strstr(pos, " datarate=");
@@ -2588,11 +2589,11 @@ static int hostapd_ctrl_check_freq_params(struct hostapd_freq_params *params)
 			break;
 		switch (params->sec_channel_offset) {
 		case 1:
-			if (params->freq + 10 != params->center_freq1)
+			if (params->freq + KHZ(10) != params->center_freq1)
 				return -1;
 			break;
 		case -1:
-			if (params->freq - 10 != params->center_freq1)
+			if (params->freq - KHZ(10) != params->center_freq1)
 				return -1;
 			break;
 		default:
@@ -2605,13 +2606,13 @@ static int hostapd_ctrl_check_freq_params(struct hostapd_freq_params *params)
 
 		switch (params->sec_channel_offset) {
 		case 1:
-			if (params->freq - 10 != params->center_freq1 &&
-			    params->freq + 30 != params->center_freq1)
+			if (params->freq - KHZ(10) != params->center_freq1 &&
+			    params->freq + KHZ(30) != params->center_freq1)
 				return 1;
 			break;
 		case -1:
-			if (params->freq + 10 != params->center_freq1 &&
-			    params->freq - 30 != params->center_freq1)
+			if (params->freq + KHZ(10) != params->center_freq1 &&
+			    params->freq - KHZ(30) != params->center_freq1)
 				return -1;
 			break;
 		default:
@@ -2620,8 +2621,8 @@ static int hostapd_ctrl_check_freq_params(struct hostapd_freq_params *params)
 
 		/* Adjacent and overlapped are not allowed for 80+80 */
 		if (params->center_freq2 &&
-		    params->center_freq1 - params->center_freq2 <= 80 &&
-		    params->center_freq2 - params->center_freq1 <= 80)
+		    params->center_freq1 - params->center_freq2 <= KHZ(80) &&
+		    params->center_freq2 - params->center_freq1 <= KHZ(80))
 			return 1;
 		break;
 	case 160:
@@ -2631,17 +2632,17 @@ static int hostapd_ctrl_check_freq_params(struct hostapd_freq_params *params)
 
 		switch (params->sec_channel_offset) {
 		case 1:
-			if (params->freq + 70 != params->center_freq1 &&
-			    params->freq + 30 != params->center_freq1 &&
-			    params->freq - 10 != params->center_freq1 &&
-			    params->freq - 50 != params->center_freq1)
+			if (params->freq + KHZ(70) != params->center_freq1 &&
+			    params->freq + KHZ(30) != params->center_freq1 &&
+			    params->freq - KHZ(10) != params->center_freq1 &&
+			    params->freq - KHZ(50) != params->center_freq1)
 				return -1;
 			break;
 		case -1:
-			if (params->freq + 50 != params->center_freq1 &&
-			    params->freq + 10 != params->center_freq1 &&
-			    params->freq - 30 != params->center_freq1 &&
-			    params->freq - 70 != params->center_freq1)
+			if (params->freq + KHZ(50) != params->center_freq1 &&
+			    params->freq + KHZ(10) != params->center_freq1 &&
+			    params->freq - KHZ(30) != params->center_freq1 &&
+			    params->freq - KHZ(70) != params->center_freq1)
 				return -1;
 			break;
 		default:
@@ -2712,8 +2713,8 @@ static int hostapd_ctrl_iface_chan_switch(struct hostapd_iface *iface,
 		ret = ieee80211_freq_to_chan(settings.freq_params.freq, &chan);
 		if (ret == NUM_HOSTAPD_MODES) {
 			wpa_printf(MSG_ERROR,
-				   "Failed to get channel for (freq=%d, sec_channel_offset=%d, bw=%d)",
-				   settings.freq_params.freq,
+				   "Failed to get channel for (freq=%g, sec_channel_offset=%d, bw=%d)",
+				   PR_KHZ(settings.freq_params.freq),
 				   settings.freq_params.sec_channel_offset,
 				   settings.freq_params.bandwidth);
 			return -1;
@@ -2722,12 +2723,12 @@ static int hostapd_ctrl_iface_chan_switch(struct hostapd_iface *iface,
 		settings.freq_params.channel = chan;
 
 		wpa_printf(MSG_DEBUG,
-			   "DFS/CAC to (channel=%u, freq=%d, sec_channel_offset=%d, bw=%d, center_freq1=%d)",
+			   "DFS/CAC to (channel=%u, freq=%g, sec_channel_offset=%d, bw=%d, center_freq1=%g)",
 			   settings.freq_params.channel,
-			   settings.freq_params.freq,
+			   PR_KHZ(settings.freq_params.freq),
 			   settings.freq_params.sec_channel_offset,
 			   settings.freq_params.bandwidth,
-			   settings.freq_params.center_freq1);
+			   PR_KHZ(settings.freq_params.center_freq1));
 
 		/* Perform CAC and switch channel */
 		hostapd_switch_channel_fallback(iface, &settings.freq_params);

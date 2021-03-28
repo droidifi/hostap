@@ -131,11 +131,11 @@ static int bgscan_learn_load(struct bgscan_learn_data *data)
 				bss_free(bss);
 				continue;
 			}
-			bss->freq = atoi(buf + 4 + 18);
+			bss->freq = KHZ(atoi(buf + 4 + 18));
 			dl_list_add(&data->bss, &bss->list);
 			wpa_printf(MSG_DEBUG, "bgscan learn: Loaded BSS "
-				   "entry: " MACSTR " freq=%d",
-				   MAC2STR(bss->bssid), bss->freq);
+				   "entry: " MACSTR " freq=%g",
+				   MAC2STR(bss->bssid), PR_KHZ(bss->freq));
 		}
 
 		if (os_strncmp(buf, "NEIGHBOR ", 9) == 0) {
@@ -175,8 +175,8 @@ static void bgscan_learn_save(struct bgscan_learn_data *data)
 	fprintf(f, "wpa_supplicant-bgscan-learn\n");
 
 	dl_list_for_each(bss, &data->bss, struct bgscan_learn_bss, list) {
-		fprintf(f, "BSS " MACSTR " %d\n",
-			MAC2STR(bss->bssid), bss->freq);
+		fprintf(f, "BSS " MACSTR " %g\n",
+			MAC2STR(bss->bssid), PR_KHZ(bss->freq));
 	}
 
 	dl_list_for_each(bss, &data->bss, struct bgscan_learn_bss, list) {
@@ -517,12 +517,14 @@ static int bgscan_learn_notify_scan(void *priv,
 		bss = bgscan_learn_get_bss(data, res->bssid);
 		if (bss && bss->freq != res->freq) {
 			wpa_printf(MSG_DEBUG, "bgscan learn: Update BSS "
-			   MACSTR " freq %d -> %d",
-				   MAC2STR(res->bssid), bss->freq, res->freq);
+			   MACSTR " freq %g -> %g",
+				   MAC2STR(res->bssid), PR_KHZ(bss->freq),
+				   PR_KHZ(res->freq));
 			bss->freq = res->freq;
 		} else if (!bss) {
 			wpa_printf(MSG_DEBUG, "bgscan learn: Add BSS " MACSTR
-				   " freq=%d", MAC2STR(res->bssid), res->freq);
+				   " freq=%g", MAC2STR(res->bssid),
+				   PR_KHZ(res->freq));
 			bss = os_zalloc(sizeof(*bss));
 			if (!bss)
 				continue;

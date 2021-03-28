@@ -541,8 +541,8 @@ static void acs_survey_mode_interference_factor(
 		if (!is_in_freqlist(iface, chan))
 			continue;
 
-		wpa_printf(MSG_DEBUG, "ACS: Survey analysis for channel %d (%d MHz)",
-			   chan->chan, chan->freq);
+		wpa_printf(MSG_DEBUG, "ACS: Survey analysis for channel %d (%g MHz)",
+			   chan->chan, PR_KHZ(chan->freq));
 
 		acs_survey_chan_interference_factor(iface, chan);
 
@@ -713,7 +713,8 @@ acs_find_ideal_chan_mode(struct hostapd_iface *iface,
 		total_weight = 1;
 
 		for (j = 1; j < n_chans; j++) {
-			adj_chan = acs_find_chan(iface, chan->freq + (j * 20));
+			adj_chan = acs_find_chan(iface, chan->freq +
+						        KHZ((j * 20)));
 			if (!adj_chan)
 				break;
 
@@ -741,7 +742,7 @@ acs_find_ideal_chan_mode(struct hostapd_iface *iface,
 		if (is_24ghz_mode(mode->mode)) {
 			for (j = 0; j < n_chans; j++) {
 				adj_chan = acs_find_chan(iface, chan->freq +
-							 (j * 20) - 5);
+							 KHZ((j * 20) - 5));
 				if (adj_chan && acs_usable_chan(adj_chan)) {
 					factor += ACS_ADJ_WEIGHT *
 						adj_chan->interference_factor;
@@ -749,7 +750,7 @@ acs_find_ideal_chan_mode(struct hostapd_iface *iface,
 				}
 
 				adj_chan = acs_find_chan(iface, chan->freq +
-							 (j * 20) - 10);
+							 KHZ((j * 20) - 10));
 				if (adj_chan && acs_usable_chan(adj_chan)) {
 					factor += ACS_NEXT_ADJ_WEIGHT *
 						adj_chan->interference_factor;
@@ -757,7 +758,7 @@ acs_find_ideal_chan_mode(struct hostapd_iface *iface,
 				}
 
 				adj_chan = acs_find_chan(iface, chan->freq +
-							 (j * 20) + 5);
+							 KHZ((j * 20) + 5));
 				if (adj_chan && acs_usable_chan(adj_chan)) {
 					factor += ACS_ADJ_WEIGHT *
 						adj_chan->interference_factor;
@@ -765,7 +766,7 @@ acs_find_ideal_chan_mode(struct hostapd_iface *iface,
 				}
 
 				adj_chan = acs_find_chan(iface, chan->freq +
-							 (j * 20) + 10);
+							 KHZ((j * 20) + 10));
 				if (adj_chan && acs_usable_chan(adj_chan)) {
 					factor += ACS_NEXT_ADJ_WEIGHT *
 						adj_chan->interference_factor;
@@ -871,8 +872,9 @@ acs_find_ideal_chan(struct hostapd_iface *iface)
 	}
 
 	if (ideal_chan) {
-		wpa_printf(MSG_DEBUG, "ACS: Ideal channel is %d (%d MHz) with total interference factor of %Lg",
-			   ideal_chan->chan, ideal_chan->freq, ideal_factor);
+		wpa_printf(MSG_DEBUG, "ACS: Ideal channel is %d (%g MHz) with total interference factor of %Lg",
+			   ideal_chan->chan, PR_KHZ(ideal_chan->freq),
+			   ideal_factor);
 		return ideal_chan;
 	}
 

@@ -144,8 +144,8 @@ static void gas_query_done(struct gas_query_ap *gas,
 			   enum gas_query_ap_result result)
 {
 	wpa_msg(gas->msg_ctx, MSG_INFO, GAS_QUERY_DONE "addr=" MACSTR
-		" dialog_token=%u freq=%d status_code=%u result=%s",
-		MAC2STR(query->addr), query->dialog_token, query->freq,
+		" dialog_token=%u freq=%g status_code=%u result=%s",
+		MAC2STR(query->addr), query->dialog_token, PR_KHZ(query->freq),
 		query->status_code, gas_result_txt(result));
 	if (gas->current == query)
 		gas->current = NULL;
@@ -262,9 +262,9 @@ static int gas_query_tx(struct gas_query_ap *gas,
 	int res, prot = pmf_in_use(gas->hapd, query->addr);
 
 	wpa_printf(MSG_DEBUG, "GAS: Send action frame to " MACSTR " len=%u "
-		   "freq=%d prot=%d using src addr " MACSTR,
+		   "freq=%g prot=%d using src addr " MACSTR,
 		   MAC2STR(query->addr), (unsigned int) wpabuf_len(req),
-		   query->freq, prot, MAC2STR(query->sa));
+		   PR_KHZ(query->freq), prot, MAC2STR(query->sa));
 	if (prot) {
 		u8 *categ = wpabuf_mhead_u8(req);
 		*categ = WLAN_ACTION_PROTECTED_DUAL;
@@ -705,8 +705,8 @@ int gas_query_ap_req(struct gas_query_ap *gas, const u8 *dst, int freq,
 	*(wpabuf_mhead_u8(req) + 2) = dialog_token;
 
 	wpa_msg(gas->msg_ctx, MSG_INFO, GAS_QUERY_START "addr=" MACSTR
-		" dialog_token=%u freq=%d",
-		MAC2STR(query->addr), query->dialog_token, query->freq);
+		" dialog_token=%u freq=%g",
+		MAC2STR(query->addr), query->dialog_token, PR_KHZ(query->freq));
 
 	gas_query_tx_initial_req(gas, query);
 

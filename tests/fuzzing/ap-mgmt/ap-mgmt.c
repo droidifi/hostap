@@ -78,7 +78,7 @@ static struct hostapd_hw_modes * gen_modes(void)
 		return NULL;
 	}
 	chan->chan = 1;
-	chan->freq = 2412;
+	chan->freq = KHZ(2412);
 	mode->channels = chan;
 	mode->num_channels = 1;
 

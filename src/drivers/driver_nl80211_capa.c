@@ -1575,6 +1575,17 @@ static void phy_info_freq(struct hostapd_hw_modes *mode,
 	if (tb_freq[NL80211_FREQUENCY_ATTR_GO_CONCURRENT])
 		chan->flag |= HOSTAPD_CHAN_GO_CONCURRENT;
 
+	if (tb_freq[NL80211_FREQUENCY_ATTR_1MHZ])
+		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_1;
+	if (tb_freq[NL80211_FREQUENCY_ATTR_2MHZ])
+		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_2;
+	if (tb_freq[NL80211_FREQUENCY_ATTR_4MHZ])
+		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_4;
+	if (tb_freq[NL80211_FREQUENCY_ATTR_8MHZ])
+		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_8;
+	if (tb_freq[NL80211_FREQUENCY_ATTR_16MHZ])
+		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_16;
+   
 	if (tb_freq[NL80211_FREQUENCY_ATTR_NO_10MHZ])
 		chan->allowed_bw &= ~HOSTAPD_CHAN_WIDTH_10;
 	if (tb_freq[NL80211_FREQUENCY_ATTR_NO_20MHZ])
